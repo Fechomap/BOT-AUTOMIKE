@@ -1,0 +1,36 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "lib": ["ES2020"],
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": false,
+    "sourceMap": false,
+    "removeComments": true,
+    "allowSyntheticDefaultImports": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "moduleResolution": "node"
+  },
+  "include": [
+    "src/index-simple.ts",
+    "src/utils/**/*",
+    "src/types/**/*", 
+    "src/database/prisma/client-simple.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/index.ts",
+    "src/bot/**/*",
+    "src/core/**/*",
+    "src/services/**/*",
+    "src/database/repositories/**/*"
+  ]
+}
