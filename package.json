@@ -2,11 +2,11 @@
   "name": "expedientes-ike-bot",
   "version": "1.0.0",
   "description": "Bot de Telegram para automatización de validación de expedientes IKE",
-  "main": "dist/index.js",
+  "main": "dist/main.js",
   "scripts": {
     "build": "tsc",
     "build:simple": "tsc -p tsconfig.simple.json",
-    "start": "node dist/index.js",
+    "start": "node dist/main.js",
     "dev": "nodemon --exec ts-node src/main.ts",
     "dev:watch": "ts-node --watch src/main.ts",
     "lint": "eslint \"src/**/*.ts\"",
