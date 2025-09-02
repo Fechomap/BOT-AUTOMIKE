@@ -18,11 +18,12 @@ mainHandler.use(async (ctx, next) => {
     if (telegramId) {
       const isAuthenticated = await authService.isUserAuthenticated(telegramId);
 
+      const callbackData = 'data' in ctx.callbackQuery ? ctx.callbackQuery.data : null;
       if (
         !isAuthenticated &&
-        !ctx.callbackQuery.data?.startsWith('auth_') &&
-        !ctx.callbackQuery.data?.includes('help') &&
-        !ctx.callbackQuery.data?.includes('cancel')
+        !callbackData?.startsWith('auth_') &&
+        !callbackData?.includes('help') &&
+        !callbackData?.includes('cancel')
       ) {
         await ctx.answerCbQuery('❌ Debes iniciar sesión primero');
         await ctx.editMessageText(
@@ -36,8 +37,8 @@ mainHandler.use(async (ctx, next) => {
       if (isAuthenticated) {
         const session = await authService.getCurrentSession(telegramId);
         ctx.session = {
-          user: session.user,
-          tenant: session.tenant,
+          user: session.user || undefined,
+          tenant: session.tenant || undefined,
         };
       }
     }
@@ -115,7 +116,9 @@ mainHandler.action('upload_excel', async (ctx) => {
   );
 
   // Marcar que estamos esperando un archivo
-  ctx.session.waitingForFile = true;
+  if (ctx.session) {
+    ctx.session.waitingForFile = true;
+  }
 });
 
 // Configurar lógicas
@@ -151,38 +154,42 @@ mainHandler.action('config_logicas', async (ctx) => {
 mainHandler.action('toggle_logica_2', async (ctx) => {
   await ctx.answerCbQuery('Lógica 2 actualizada');
 
-  ctx.session.logica2Enabled = !ctx.session.logica2Enabled;
+  if (ctx.session) {
+    ctx.session.logica2Enabled = !ctx.session.logica2Enabled;
 
-  // Refrescar menú
-  const logica2Enabled = ctx.session.logica2Enabled;
-  const logica3Enabled = ctx.session.logica3Enabled || false;
+    // Refrescar menú
+    const logica2Enabled = ctx.session.logica2Enabled;
+    const logica3Enabled = ctx.session.logica3Enabled || false;
 
-  await ctx.editMessageReplyMarkup(
-    MainKeyboard.getLogicasMenu(logica2Enabled, logica3Enabled).reply_markup
-  );
+    await ctx.editMessageReplyMarkup(
+      MainKeyboard.getLogicasMenu(logica2Enabled, logica3Enabled).reply_markup
+    );
+  }
 });
 
 // Toggle lógica 3
 mainHandler.action('toggle_logica_3', async (ctx) => {
   await ctx.answerCbQuery('Lógica 3 actualizada');
 
-  ctx.session.logica3Enabled = !ctx.session.logica3Enabled;
+  if (ctx.session) {
+    ctx.session.logica3Enabled = !ctx.session.logica3Enabled;
 
-  // Refrescar menú
-  const logica2Enabled = ctx.session.logica2Enabled || false;
-  const logica3Enabled = ctx.session.logica3Enabled;
+    // Refrescar menú
+    const logica2Enabled = ctx.session.logica2Enabled || false;
+    const logica3Enabled = ctx.session.logica3Enabled;
 
-  await ctx.editMessageReplyMarkup(
-    MainKeyboard.getLogicasMenu(logica2Enabled, logica3Enabled).reply_markup
-  );
+    await ctx.editMessageReplyMarkup(
+      MainKeyboard.getLogicasMenu(logica2Enabled, logica3Enabled).reply_markup
+    );
+  }
 });
 
 // Guardar configuración de lógicas
 mainHandler.action('save_logicas', async (ctx) => {
   await ctx.answerCbQuery('✅ Configuración guardada');
 
-  const logica2 = ctx.session.logica2Enabled || false;
-  const logica3 = ctx.session.logica3Enabled || false;
+  const logica2 = ctx.session?.logica2Enabled || false;
+  const logica3 = ctx.session?.logica3Enabled || false;
 
   await ctx.editMessageText(
     '✅ **Configuración Guardada**\n\n' +
@@ -242,7 +249,9 @@ mainHandler.action('config_credentials', async (ctx) => {
     }
   );
 
-  ctx.session.waitingForCredentials = true;
+  if (ctx.session) {
+    ctx.session.waitingForCredentials = true;
+  }
 });
 
 // Estadísticas

@@ -2,12 +2,12 @@
   "name": "expedientes-ike-bot",
   "version": "1.0.0",
   "description": "Bot de Telegram para automatización de validación de expedientes IKE",
-  "main": "dist/index-simple.js",
+  "main": "dist/index.js",
   "scripts": {
-    "build": "tsc -p tsconfig.simple.json",
-    "build:full": "tsc",
-    "start": "npm run prisma:deploy && node dist/index-simple.js",
-    "dev": "ts-node src/index-simple.ts",
+    "build": "tsc",
+    "build:simple": "tsc -p tsconfig.simple.json",
+    "start": "npm run prisma:deploy && node dist/index.js",
+    "dev": "ts-node src/index.ts",
     "dev:watch": "ts-node --watch src/index.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
@@ -48,6 +48,7 @@
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "telegraf": "^4.15.0",
     "telegraf-session-local": "^2.1.0",
+    "tsconfig-paths": "^4.2.0",
     "winston": "^3.11.0"
   },
   "devDependencies": {

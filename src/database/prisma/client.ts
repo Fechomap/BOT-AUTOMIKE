@@ -27,26 +27,8 @@ class DatabaseClient {
         ],
       });
 
-      // Log de queries en desarrollo
-      if (process.env.NODE_ENV === 'development') {
-        DatabaseClient.instance.$on('query', (e) => {
-          Logger.debug(`Query: ${e.query}`);
-        });
-      }
-
-      // Log de errores
-      DatabaseClient.instance.$on('error', (e) => {
-        Logger.error('Database error', {}, new Error(e.message));
-      });
-
-      // Log de info y warnings
-      DatabaseClient.instance.$on('info', (e) => {
-        Logger.info(`Database info: ${e.message}`);
-      });
-
-      DatabaseClient.instance.$on('warn', (e) => {
-        Logger.warn(`Database warning: ${e.message}`);
-      });
+      // Log events are handled by the logging configuration above
+      // Note: Prisma client events are configured in the log array
     }
 
     return DatabaseClient.instance;

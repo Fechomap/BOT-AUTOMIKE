@@ -28,11 +28,8 @@ async function bootstrap() {
     const bot = new Telegraf(config.bot.token);
 
     // Configurar sesiones y scenes
-    const stage = new Scenes.Stage<Scenes.SceneContext>();
-    stage.register(authScenes);
-
-    bot.use(session());
-    bot.use(stage.middleware());
+    bot.use(session() as any);
+    bot.use((authScenes as any).middleware());
 
     // Middleware de logging
     bot.use(async (ctx, next) => {
@@ -58,7 +55,11 @@ async function bootstrap() {
     bot.action('auth_register', authHandlers.handleRegister);
     bot.action('auth_login', authHandlers.handleLogin);
     bot.action('logout', authHandlers.handleLogout);
-    bot.action('cancel_auth', (ctx) => ctx.scene.leave());
+    bot.action('cancel_auth', (ctx: any) => {
+      if (ctx.scene) {
+        return ctx.scene.leave();
+      }
+    });
 
     // Comando de ayuda
     bot.help(async (ctx) => {
@@ -98,9 +99,9 @@ async function bootstrap() {
     });
 
     // Error handling
-    bot.catch((err, ctx) => {
+    bot.catch((err: any, ctx: any) => {
       Logger.error(
-        `Error en el bot: ${err.message}`,
+        `Error en el bot: ${(err as Error).message}`,
         {
           telegramId: ctx.from?.id.toString(),
           action: 'bot_error',
@@ -139,7 +140,7 @@ async function bootstrap() {
     const app = express();
     const port = process.env.PORT || 3000;
 
-    app.get('/health', async (req: any, res: any) => {
+    app.get('/health', async (_req: any, res: any) => {
       const isDbHealthy = await DatabaseClient.healthCheck();
       const jobsStatus = jobService.getJobsStatus();
 

@@ -97,7 +97,7 @@ export class MainKeyboard {
 
   // Teclado para cuando se está procesando
   static getProcessingMenu(canCancel: boolean = false) {
-    const buttons = [];
+    const buttons: any[] = [];
 
     if (canCancel) {
       buttons.push([Markup.button.callback('🛑 Cancelar Proceso', 'cancel_processing')]);
@@ -129,7 +129,7 @@ export class MainKeyboard {
 
   // Teclado para manejo de errores
   static getErrorMenu(canRetry: boolean = true) {
-    const buttons = [];
+    const buttons: any[] = [];
 
     if (canRetry) {
       buttons.push([Markup.button.callback('🔄 Reintentar', 'retry_action')]);

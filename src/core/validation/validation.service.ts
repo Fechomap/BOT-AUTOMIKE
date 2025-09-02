@@ -249,7 +249,7 @@ export class ValidationService {
    * Explica qué lógicas están activas
    */
   static explainLogics(options: ValidationOptions): string {
-    const explanations = [];
+    const explanations: string[] = [];
 
     explanations.push(
       '✅ **Lógica 1 - Costo Exacto** (Siempre activa)\n   Se libera si el costo del sistema es exactamente igual al costo guardado'

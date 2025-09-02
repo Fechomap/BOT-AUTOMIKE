@@ -317,8 +317,9 @@ export class ExcelService {
 
     worksheet.eachRow({ includeEmpty: false }, (row) => {
       row.eachCell({ includeEmpty: false }, (cell) => {
-        if (cell.col > maxColumn) {
-          maxColumn = cell.col;
+        const colNum = typeof cell.col === 'string' ? parseInt(cell.col, 10) : cell.col;
+        if (colNum > maxColumn) {
+          maxColumn = colNum;
         }
       });
     });

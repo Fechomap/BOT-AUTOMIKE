@@ -217,12 +217,12 @@ fileHandler.action(/^process_confirmed:(.+)$/, async (ctx) => {
             `**Errores:** ${progress.errors}\n\n` +
             `[${'█'.repeat(Math.floor(progress.percentage / 5))}${'░'.repeat(20 - Math.floor(progress.percentage / 5))}]`;
 
-          if (!progressMessageId) {
+          if (!progressMessageId && ctx.chat) {
             const msg = await ctx.telegram.sendMessage(ctx.chat.id, progressText, {
               parse_mode: 'Markdown',
             });
             progressMessageId = msg.message_id;
-          } else {
+          } else if (ctx.chat) {
             await ctx.telegram
               .editMessageText(ctx.chat.id, progressMessageId, undefined, progressText, {
                 parse_mode: 'Markdown',
@@ -261,10 +261,12 @@ fileHandler.action(/^process_confirmed:(.+)$/, async (ctx) => {
         : '') +
       '\n\n🎉 Tu archivo de resultados está listo para descargar.';
 
-    await ctx.telegram.editMessageText(ctx.chat.id, progressMessageId!, undefined, resultText, {
-      parse_mode: 'Markdown',
-      ...MainKeyboard.getDownloadMenu(),
-    });
+    if (ctx.chat) {
+      await ctx.telegram.editMessageText(ctx.chat.id, progressMessageId!, undefined, resultText, {
+        parse_mode: 'Markdown',
+        ...MainKeyboard.getDownloadMenu(),
+      });
+    }
 
     // Guardar ruta del archivo para descarga
     session.resultFilePath = result.filePath;
@@ -300,8 +302,10 @@ fileHandler.action('cancel_processing', async (ctx) => {
   await ctx.answerCbQuery();
 
   // Extraer ruta del archivo del mensaje anterior si es posible
-  const callbackData =
-    ctx.callbackQuery.message?.reply_markup?.inline_keyboard?.[0]?.[0]?.callback_data;
+  const message = ctx.callbackQuery.message;
+  const callbackData = message && 'reply_markup' in message
+    ? (message.reply_markup?.inline_keyboard?.[0]?.[0] as any)?.callback_data
+    : undefined;
   if (callbackData && callbackData.startsWith('process_confirmed:')) {
     const filePath = callbackData.split(':')[1];
     if (fs.existsSync(filePath)) {
@@ -368,7 +372,9 @@ fileHandler.action('process_new', async (ctx) => {
     }
   );
 
-  ctx.session.waitingForFile = true;
+  if (ctx.session) {
+    ctx.session.waitingForFile = true;
+  }
 });
 
 export default fileHandler;

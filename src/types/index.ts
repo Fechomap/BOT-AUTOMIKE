@@ -110,6 +110,7 @@ export interface AutomationResult {
   servicio?: string;
   subservicio?: string;
   error?: string;
+  processingTime?: number;
 }
 
 // Configuración

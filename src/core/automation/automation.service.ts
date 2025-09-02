@@ -193,7 +193,8 @@ export class AutomationService {
       // Buscar botón de aceptar en la primera columna
       const acceptButton = await this.page.$eval('table tbody tr', (row) => {
         const buttons = row.querySelectorAll('button');
-        for (const button of buttons) {
+        for (let i = 0; i < buttons.length; i++) {
+          const button = buttons[i];
           const parentTd = button.closest('td');
           if (parentTd && (parentTd as HTMLTableCellElement).cellIndex === 0) {
             return true;
@@ -211,7 +212,8 @@ export class AutomationService {
         const row = document.querySelector('table tbody tr');
         if (row) {
           const buttons = row.querySelectorAll('button');
-          for (const button of buttons) {
+          for (let i = 0; i < buttons.length; i++) {
+            const button = buttons[i];
             const parentTd = button.closest('td');
             if (parentTd && (parentTd as HTMLTableCellElement).cellIndex === 0) {
               (button as HTMLElement).click();
@@ -227,7 +229,8 @@ export class AutomationService {
       // Buscar y hacer click en confirmación del modal
       const confirmClicked = await this.page.evaluate(() => {
         const modalButtons = document.querySelectorAll('.cdk-overlay-container button');
-        for (const button of modalButtons) {
+        for (let i = 0; i < modalButtons.length; i++) {
+          const button = modalButtons[i];
           if (button.textContent?.trim().toLowerCase().includes('aceptar')) {
             (button as HTMLElement).click();
             return true;
@@ -321,7 +324,7 @@ export class AutomationService {
         'input[type="text"]',
       ];
 
-      let inputElement = null;
+      let inputElement: any = null;
       for (const selector of inputSelectors) {
         try {
           inputElement = await this.page.$(selector);
@@ -353,7 +356,8 @@ export class AutomationService {
       // Buscar botón de búsqueda
       const searchButtonExists = await this.page.evaluate(() => {
         const buttons = document.querySelectorAll('button');
-        for (const button of buttons) {
+        for (let i = 0; i < buttons.length; i++) {
+          const button = buttons[i];
           if (button.textContent?.includes('Buscar')) {
             (button as HTMLElement).click();
             return true;

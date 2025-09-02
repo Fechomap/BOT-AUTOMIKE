@@ -301,7 +301,13 @@ export class JobService {
     isScheduled: boolean;
     nextExecution?: Date;
   }> {
-    const status = [];
+    const status: Array<{
+      jobId: string;
+      type: JobType;
+      isRunning: boolean;
+      isScheduled: boolean;
+      nextExecution?: Date;
+    }> = [];
 
     for (const [jobId, _task] of this.scheduledJobs.entries()) {
       const type = jobId.split('_')[0] as JobType;

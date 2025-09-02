@@ -36,7 +36,9 @@ export const registerScene = new Scenes.WizardScene(
       return;
     }
 
-    ctx.session.registerData = { email };
+    if (ctx.session) {
+      ctx.session.registerData = { email, businessName: '' };
+    }
 
     await ctx.reply('🏢 *Paso 2/3:* Ingresa el nombre de tu empresa o negocio:', {
       parse_mode: 'Markdown',
@@ -58,7 +60,9 @@ export const registerScene = new Scenes.WizardScene(
       return;
     }
 
-    ctx.session.registerData.businessName = businessName;
+    if (ctx.session?.registerData) {
+      ctx.session.registerData.businessName = businessName;
+    }
 
     await ctx.reply('🔐 *Paso 3/3:* Crea una contraseña segura (mínimo 8 caracteres):', {
       parse_mode: 'Markdown',
@@ -87,6 +91,11 @@ export const registerScene = new Scenes.WizardScene(
       // Ignore if can't delete
     }
 
+    if (!ctx.session?.registerData) {
+      await ctx.reply('❌ Error: datos de registro no encontrados.');
+      return ctx.scene.leave();
+    }
+
     const registerData: RegisterData = {
       email: ctx.session.registerData.email,
       businessName: ctx.session.registerData.businessName,
@@ -99,8 +108,10 @@ export const registerScene = new Scenes.WizardScene(
       const result = await authService.register(ctx.from!.id.toString(), registerData);
 
       if (result.success && result.tenant && result.user) {
-        ctx.session.tenant = result.tenant;
-        ctx.session.user = result.user;
+        if (ctx.session) {
+          ctx.session.tenant = result.tenant;
+          ctx.session.user = result.user;
+        }
 
         await ctx.reply(
           '✅ *¡Cuenta creada exitosamente!*\n\n' +
@@ -164,7 +175,9 @@ export const loginScene = new Scenes.WizardScene(
       return;
     }
 
-    ctx.session.loginData = { email };
+    if (ctx.session) {
+      ctx.session.loginData = { email };
+    }
 
     await ctx.reply('🔐 *Paso 2/2:* Ingresa tu contraseña:', {
       parse_mode: 'Markdown',
@@ -188,6 +201,11 @@ export const loginScene = new Scenes.WizardScene(
       // Ignore if can't delete
     }
 
+    if (!ctx.session?.loginData) {
+      await ctx.reply('❌ Error: datos de login no encontrados.');
+      return ctx.scene.leave();
+    }
+
     const loginData: LoginData = {
       email: ctx.session.loginData.email,
       password,
@@ -199,8 +217,10 @@ export const loginScene = new Scenes.WizardScene(
       const result = await authService.login(ctx.from!.id.toString(), loginData);
 
       if (result.success && result.tenant && result.user) {
-        ctx.session.tenant = result.tenant;
-        ctx.session.user = result.user;
+        if (ctx.session) {
+          ctx.session.tenant = result.tenant;
+          ctx.session.user = result.user;
+        }
 
         await ctx.reply(
           '✅ *¡Sesión iniciada correctamente!*\n\n' +
@@ -247,7 +267,7 @@ export const handleCancelAuth = async (ctx: any) => {
 };
 
 // Scene manager export
-export const authScenes = new Scenes.Stage([registerScene, loginScene]);
+export const authScenes = new Scenes.Stage([registerScene, loginScene] as any);
 
 // Action handlers
 export const authHandlers = {
@@ -269,8 +289,10 @@ export const authHandlers = {
         await authService.logout(ctx.session.user.id);
       }
 
-      ctx.session.tenant = null;
-      ctx.session.user = null;
+      if (ctx.session) {
+        ctx.session.tenant = null;
+        ctx.session.user = null;
+      }
 
       await ctx.editMessageText(
         '👋 ¡Hasta luego! Has cerrado sesión correctamente.\n\n' +

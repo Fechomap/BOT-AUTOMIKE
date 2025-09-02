@@ -164,9 +164,11 @@ textHandler.hears('📊 Procesar', async (ctx) => {
 
 textHandler.hears('📈 Estadísticas', async (ctx) => {
   if (ctx.session?.tenant) {
-    // Redirigir a handler de estadísticas
-    ctx.callbackQuery = { data: 'stats_menu' } as any;
-    await ctx.reply('📈 Cargando estadísticas...');
+    // Mostrar estadísticas directamente sin simular callback
+    await ctx.reply('📈 **Estadísticas**\n\nUsa el menú de botones para ver las estadísticas.', {
+      parse_mode: 'Markdown',
+      ...MainKeyboard.getStatsMenu(),
+    });
   } else {
     await ctx.reply('Debes iniciar sesión primero.', MainKeyboard.getAuthMenu());
   }
