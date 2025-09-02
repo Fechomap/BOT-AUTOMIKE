@@ -7,7 +7,7 @@
     "build": "tsc",
     "build:simple": "tsc -p tsconfig.simple.json",
     "start": "node dist/index.js",
-    "dev": "ts-node src/main.ts",
+    "dev": "nodemon --exec ts-node src/main.ts",
     "dev:watch": "ts-node --watch src/main.ts",
     "lint": "eslint \"src/**/*.ts\"",
     "lint:fix": "eslint src --fix",
@@ -44,7 +44,8 @@
     "telegraf": "^4.15.0",
     "telegraf-session-local": "^2.1.0",
     "tsconfig-paths": "^4.2.0",
-    "winston": "^3.11.0"
+    "winston": "^3.11.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
@@ -58,6 +59,7 @@
     "eslint": "^8.56.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.1.6",
+    "nodemon": "^3.1.10",
     "prettier": "^3.6.2",
     "prisma": "^5.7.0",
     "ts-node": "^10.9.2",

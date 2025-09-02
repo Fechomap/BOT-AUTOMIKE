@@ -132,7 +132,7 @@ export class BotController {
     );
   }
 
-  private handleError(err: any, ctx: Context) {
+  private handleError(err: any, _ctx: Context) {
     console.error('❌ Bot Error:', err);
   }
 

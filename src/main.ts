@@ -14,12 +14,29 @@ if (!BOT_TOKEN) {
 }
 
 // Dependency Injection (Simple Factory)
-function createBotController(): BotController {
+async function createBotController(): Promise<BotController> {
   const bot = new Telegraf(BOT_TOKEN!);
   
   // Repositories (Infrastructure)
   const excelRepo = new ExcelRepositoryImpl();
   const sistemaRepo = new SistemaRepositoryImpl();
+  
+  // Configurar credenciales para automatización (sin inicializar el navegador aún)
+  const ikeUsername = process.env.IKE_USERNAME;
+  const ikePassword = process.env.IKE_PASSWORD;
+  
+  if (!ikeUsername || !ikePassword) {
+    console.error('❌ Credenciales IKE no configuradas');
+    console.error('Configure IKE_USERNAME y IKE_PASSWORD en el archivo .env');
+    process.exit(1);
+  }
+
+  console.log('🔐 Credenciales IKE configuradas (navegador se abrirá al procesar Excel)');
+  sistemaRepo.setCredentials({
+    username: ikeUsername,
+    password: ikePassword,
+    headless: process.env.IKE_HEADLESS === 'true'
+  });
   
   // Use Cases (Application)
   const processExcelUseCase = new ProcessExcelUseCase(excelRepo, sistemaRepo);
@@ -31,7 +48,7 @@ function createBotController(): BotController {
 // Main
 async function main() {
   try {
-    const botController = createBotController();
+    const botController = await createBotController();
     await botController.launch();
   } catch (error) {
     console.error('❌ Error fatal:', error);

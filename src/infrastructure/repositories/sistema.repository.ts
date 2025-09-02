@@ -1,48 +1,71 @@
 import { SistemaRepository } from '../../application/use-cases/process-excel.use-case';
+import { IkePortalService, IkePortalConfig } from '../services/ike-portal.service';
 
 export class SistemaRepositoryImpl implements SistemaRepository {
-  
+  private portalService: IkePortalService | null = null;
+  private credentials: IkePortalConfig | null = null;
+
+  /**
+   * Establece las credenciales sin inicializar el navegador
+   */
+  setCredentials(config: IkePortalConfig): void {
+    this.credentials = config;
+  }
+
+  /**
+   * Configura el servicio para usar automatización real
+   */
+  async configureRealAutomation(config: IkePortalConfig): Promise<void> {
+    this.portalService = new IkePortalService(config);
+    await this.portalService.initialize();
+    console.log('✅ Automatización real configurada');
+  }
+
+  /**
+   * Inicializa la automatización bajo demanda
+   */
+  private async ensureInitialized(): Promise<void> {
+    if (!this.portalService && this.credentials) {
+      console.log('🔐 Inicializando Portal IKE por primera vez...');
+      await this.configureRealAutomation(this.credentials);
+    }
+  }
+
   async searchExpediente(expediente: string, costoGuardado: number): Promise<{
     encontrado: boolean;
     costoSistema: number;
   }> {
-    console.log(`🔍 Buscando expediente ${expediente} en sistema...`);
+    // Inicializar navegador bajo demanda
+    await this.ensureInitialized();
     
-    // Simular tiempo de búsqueda
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    const random = Math.random();
-    
-    // 5% no encontrado
-    if (random < 0.05) {
-      console.log(`❌ Expediente ${expediente} no encontrado`);
-      return { encontrado: false, costoSistema: 0 };
+    if (!this.portalService || !this.portalService.isReady()) {
+      throw new Error('Portal IKE no configurado. Configure las credenciales IKE_USERNAME y IKE_PASSWORD en .env');
     }
-    
-    // Generar costo del sistema basado en escenarios realistas
-    let costoSistema: number;
-    
-    if (random < 0.25) {
-      // 20% - Costo exacto (Lógica 1)
-      costoSistema = costoGuardado;
-    } else if (random < 0.50) {
-      // 25% - Margen ±10% (Lógica 2)  
-      const variation = (Math.random() - 0.5) * 0.2;
-      costoSistema = Math.round(costoGuardado * (1 + variation) * 100) / 100;
-    } else if (random < 0.70) {
-      // 20% - Costo superior (Lógica 3)
-      const increase = Math.random() * 0.5 + 0.1;
-      costoSistema = Math.round(costoGuardado * (1 + increase) * 100) / 100;
-    } else {
-      // 30% - Fuera de rangos (Pendiente)
-      const factor = Math.random() < 0.5 
-        ? Math.random() * 0.8 
-        : Math.random() * 2 + 1.6;
-      costoSistema = Math.round(costoGuardado * factor * 100) / 100;
+
+    return await this.searchWithRealAutomation(expediente);
+  }
+
+  /**
+   * Búsqueda con automatización real del Portal IKE
+   */
+  private async searchWithRealAutomation(expediente: string): Promise<{
+    encontrado: boolean;
+    costoSistema: number;
+  }> {
+    const result = await this.portalService!.searchExpediente(expediente);
+    return {
+      encontrado: result.encontrado,
+      costoSistema: result.costoSistema
+    };
+  }
+
+  /**
+   * Limpia recursos
+   */
+  async cleanup(): Promise<void> {
+    if (this.portalService) {
+      await this.portalService.close();
+      this.portalService = null;
     }
-    
-    console.log(`✅ ${expediente} encontrado - Costo: $${costoSistema}`);
-    
-    return { encontrado: true, costoSistema };
   }
 }
