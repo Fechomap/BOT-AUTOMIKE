@@ -1,0 +1,9 @@
+node_modules
+dist
+build
+*.log
+.env*
+coverage
+.nyc_output
+prisma/migrations
+*.md

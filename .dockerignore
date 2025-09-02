@@ -1,0 +1,37 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+README.md
+.nyc_output
+coverage
+.coverage
+*.lcov
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Build outputs
+dist/
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+temp/
+results/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Development
+*.development.*
+*.test.*
