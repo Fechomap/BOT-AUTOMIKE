@@ -21,8 +21,12 @@ model Tenant {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  sessions Session[]
-  history  ProcessingHistory[]
+  sessions          Session[]
+  history           ProcessingHistory[]
+  expedientes       Expediente[]
+  cargas            CargaExpedientes[]
+  cronJobExecutions CronJobExecution[]
+  cronJobSchedules  CronJobSchedule[]
 
   @@map("tenants")
 }
@@ -57,4 +61,121 @@ model ProcessingHistory {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("processing_history")
+}
+
+enum CalificacionExpediente {
+  APROBADO
+  PENDIENTE
+  NO_APROBADO
+  NO_ENCONTRADO
+}
+
+enum TipoOperacionVersion {
+  CREACION
+  ACTUALIZACION_COSTO
+  REEVALUACION_CRONJOB
+}
+
+enum ProcesadoPor {
+  CARGA_MANUAL
+  CRONJOB
+}
+
+model Expediente {
+  id                       String                 @id @default(uuid())
+  tenantId                 String
+  numero                   String
+  costo                    Decimal                @db.Decimal(12, 2)
+  calificacion             CalificacionExpediente
+  motivoCalificacion       String?
+  versionActualId          String?
+  fechaPrimeraVersion      DateTime               @default(now())
+  fechaUltimaActualizacion DateTime               @updatedAt
+
+  tenant    Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  versiones ExpedienteVersion[]
+
+  @@unique([tenantId, numero])
+  @@index([tenantId, calificacion])
+  @@map("expedientes")
+}
+
+model ExpedienteVersion {
+  id                   String                  @id @default(uuid())
+  expedienteId         String
+  cargaId              String?
+  costoAnterior        Decimal?                @db.Decimal(12, 2)
+  costoNuevo           Decimal                 @db.Decimal(12, 2)
+  calificacionAnterior CalificacionExpediente?
+  calificacionNueva    CalificacionExpediente
+  motivoCambio         String
+  tipoOperacion        TipoOperacionVersion
+  procesadoPor         ProcesadoPor
+  createdAt            DateTime                @default(now())
+
+  expediente Expediente        @relation(fields: [expedienteId], references: [id], onDelete: Cascade)
+  carga      CargaExpedientes? @relation(fields: [cargaId], references: [id], onDelete: SetNull)
+
+  @@index([expedienteId])
+  @@index([cargaId])
+  @@map("expediente_versiones")
+}
+
+model CargaExpedientes {
+  id                  String   @id @default(uuid())
+  tenantId            String
+  nombreArchivo       String
+  totalExpedientes    Int
+  nuevosExpedientes   Int
+  actualizados        Int
+  duplicadosSinCambio Int
+  errores             Int
+  aprobados           Int
+  pendientes          Int             @default(0)
+  noAprobados         Int
+  noEncontrados       Int
+  esBaseline          Boolean  @default(false)
+  fechaProcesamiento  DateTime @default(now())
+  procesadoPor        String
+
+  tenant    Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  versiones ExpedienteVersion[]
+
+  @@index([tenantId])
+  @@index([fechaProcesamiento])
+  @@map("cargas_expedientes")
+}
+
+model CronJobExecution {
+  id                     String   @id @default(uuid())
+  tenantId               String?
+  totalProcesados        Int
+  cambiosAprobado        Int
+  permanecenNoAprobado   Int
+  permanecenNoEncontrado Int
+  cambiosCosto           Int
+  duracionMs             Int
+  fechaInicio            DateTime
+  fechaFin               DateTime
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([fechaInicio])
+  @@map("cronjob_executions")
+}
+
+model CronJobSchedule {
+  id             String   @id @default(uuid())
+  tenantId       String?
+  cronExpression String
+  descripcion    String
+  activo         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([activo])
+  @@map("cronjob_schedules")
 }

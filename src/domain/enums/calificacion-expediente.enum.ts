@@ -1,0 +1,17 @@
+export enum CalificacionExpediente {
+  APROBADO = 'APROBADO',
+  PENDIENTE = 'PENDIENTE',
+  NO_APROBADO = 'NO_APROBADO',
+  NO_ENCONTRADO = 'NO_ENCONTRADO',
+}
+
+export enum TipoOperacionVersion {
+  CREACION = 'CREACION',
+  ACTUALIZACION_COSTO = 'ACTUALIZACION_COSTO',
+  REEVALUACION_CRONJOB = 'REEVALUACION_CRONJOB',
+}
+
+export enum ProcesadoPor {
+  CARGA_MANUAL = 'CARGA_MANUAL',
+  CRONJOB = 'CRONJOB',
+}

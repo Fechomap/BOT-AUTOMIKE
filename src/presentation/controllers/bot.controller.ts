@@ -1,9 +1,13 @@
 import { Telegraf, Context } from 'telegraf';
 import * as fs from 'fs';
 import { ProcessExcelUseCase } from '../../application/use-cases/process-excel.use-case';
+import { CargaExpedientesUseCase } from '../../application/use-cases/carga-expedientes.use-case';
+import { RevalidacionCronJobUseCase } from '../../application/use-cases/revalidacion-cronjob.use-case';
 import { TenantService } from '../../infrastructure/services/tenant.service';
 import { SessionService, UserSession } from '../../infrastructure/services/session.service';
 import { ProgressBarUtil } from '../../infrastructure/utils/progress-bar.util';
+import { ExpedienteRepository } from '../../infrastructure/repositories/expediente.repository';
+import { CalificacionExpediente } from '../../domain/enums/calificacion-expediente.enum';
 
 interface RegistrationState {
   stage: 'company' | 'username' | 'password';
@@ -20,7 +24,10 @@ export class BotController {
 
   constructor(
     private readonly bot: Telegraf,
-    private readonly processExcelUseCase: ProcessExcelUseCase
+    private readonly processExcelUseCase: ProcessExcelUseCase,
+    private readonly cargaExpedientesUseCase?: CargaExpedientesUseCase,
+    private readonly revalidacionUseCase?: RevalidacionCronJobUseCase,
+    private readonly expedienteRepository?: ExpedienteRepository
   ) {
     this.tenantService = new TenantService();
     this.sessionService = new SessionService();
@@ -47,6 +54,15 @@ export class BotController {
     // Comandos adicionales
     this.bot.command('credenciales', this.handleCredentialsCommand.bind(this));
     this.bot.command('estado', this.handleStatusCommand.bind(this));
+
+    // Comandos de trazabilidad
+    this.bot.command('resumen', this.handleResumenCommand.bind(this));
+    this.bot.command('expediente', this.handleExpedienteCommand.bind(this));
+    this.bot.command('historial', this.handleHistorialCommand.bind(this));
+    this.bot.command('pendientes', this.handlePendientesCommand.bind(this));
+    this.bot.command('revalidar', this.handleRevalidarCommand.bind(this));
+    this.bot.command('cargas', this.handleCargasCommand.bind(this));
+
     this.bot.help(this.handleHelp.bind(this));
 
     // Error handler
@@ -473,20 +489,40 @@ export class BotController {
         }
       };
 
-      // Procesar con credenciales específicas del tenant
-      const result = await this.processExcelUseCase.execute({
-        filePath: session.filePath,
-        logicasActivas: session.logicasActivas,
+      // Procesar con credenciales específicas del tenant usando nuevo sistema de trazabilidad
+      if (!this.cargaExpedientesUseCase) {
+        throw new Error('Sistema de trazabilidad no configurado');
+      }
+
+      // Leer expedientes del Excel
+      const { ExcelRepositoryImpl } = await import(
+        '../../infrastructure/repositories/excel.repository'
+      );
+      const excelRepo = new ExcelRepositoryImpl();
+      const expedientesExcel = await excelRepo.readFile(session.filePath);
+
+      // Convertir formato para el use case
+      const expedientesParaUseCase = expedientesExcel.map((exp) => ({
+        expediente: exp.numero,
+        costo: parseFloat(exp.costoGuardado.toString()), // Asegurar que sea number
+      }));
+
+      // Procesar con nuevo sistema de trazabilidad completa
+      const result = await this.cargaExpedientesUseCase.execute({
         tenantId: tenant.id,
+        expedientes: expedientesParaUseCase,
+        nombreArchivo: session.fileName || 'archivo_telegram.xlsx',
+        logicasActivas: session.logicasActivas,
+        procesadoPor: 'TELEGRAM_BOT',
         progressCallback,
       });
 
-      // Registrar en historial
+      // Registrar en historial (adaptando campos del nuevo sistema)
       await this.tenantService.addProcessingHistory(BigInt(ctx.from.id), {
-        total: result.total,
-        aceptados: result.aceptados,
-        pendientes: result.pendientes,
-        tasaLiberacion: result.tasaLiberacion,
+        total: result.totalExpedientes,
+        aceptados: result.aprobados,
+        pendientes: result.pendientes + result.noAprobados + result.noEncontrados, // PENDIENTE + NO_APROBADO + NO_ENCONTRADO
+        tasaLiberacion: result.tasaAprobacion,
         logicasUsadas: session.logicasActivas,
         fileName: session.fileName,
       });
@@ -500,18 +536,22 @@ export class BotController {
       await this.sessionService.cleanupSession(session.id);
 
       // Mensaje final con tiempo total
-      const completionMessage = ProgressBarUtil.createCompletionMessage(result.total, startTime);
+      const completionMessage = ProgressBarUtil.createCompletionMessage(
+        result.totalExpedientes,
+        startTime
+      );
       const finalMessage =
         `${completionMessage}\n\n` +
         `🏢 **Empresa:** ${tenant.companyName}\n` +
-        `📊 **Resultados:**\n` +
-        `• Liberados: ${result.aceptados}\n` +
-        `• Pendientes: ${result.pendientes}\n` +
-        `• Tasa liberación: ${result.tasaLiberacion.toFixed(1)}%\n\n` +
-        `🔍 **Por lógica:**\n` +
-        `• L1 (Exacto): ${result.porLogica.logica1}\n` +
-        `• L2 (±10%): ${result.porLogica.logica2}\n` +
-        `• L3 (Superior): ${result.porLogica.logica3}`;
+        `📊 **Resultados de Carga:**\n` +
+        `• ✅ Aprobados: **${result.aprobados}**\n` +
+        `• ⏳ Pendientes: **${result.pendientes}**\n` +
+        `• ❌ No Aprobados: **${result.noAprobados}**\n` +
+        `• 🔍 No Encontrados: **${result.noEncontrados}**\n` +
+        `• 🆕 Nuevos: **${result.nuevosExpedientes}**\n` +
+        `• 🔄 Actualizados: **${result.actualizados}**\n\n` +
+        `📈 **Tasa de Aprobación:** ${result.tasaAprobacion.toFixed(1)}%\n` +
+        `🎯 **${result.esBaseline ? 'Primera carga (Baseline)' : 'Carga incremental'}**`;
 
       await ctx.telegram.editMessageText(
         ctx.chat!.id,
@@ -521,14 +561,31 @@ export class BotController {
         { parse_mode: 'Markdown' }
       );
 
-      // Enviar archivo de resultados
-      if (fs.existsSync(result.resultFilePath)) {
-        await ctx.replyWithDocument(
-          { source: result.resultFilePath },
-          { caption: `📎 Resultados de ${tenant.companyName} - Liberaciones reales` }
-        );
+      // Los comandos están disponibles siempre, no necesitamos spamear al usuario
 
-        fs.unlinkSync(result.resultFilePath);
+      // Enviar Excel de resultados si está disponible
+      if (result.excelPath && fs.existsSync(result.excelPath)) {
+        try {
+          await ctx.replyWithDocument(
+            {
+              source: result.excelPath,
+              filename: `resultados_${tenant.companyName}_${new Date().toISOString().split('T')[0]}.xlsx`,
+            },
+            {
+              caption:
+                '📊 Excel de resultados generado automáticamente por el sistema de trazabilidad',
+            }
+          );
+
+          // Limpiar archivo Excel temporal
+          fs.unlinkSync(result.excelPath);
+          console.log(`🧹 Excel temporal eliminado: ${result.excelPath}`);
+        } catch (error) {
+          console.error('❌ Error enviando Excel:', error);
+          await ctx.reply(
+            '⚠️ Excel generado pero hubo un error al enviarlo. Los datos están guardados en el sistema de trazabilidad.'
+          );
+        }
       }
     } catch (error) {
       console.error('❌ Error procesando archivo:', error);
@@ -584,12 +641,19 @@ export class BotController {
 
   private async handleHelp(ctx: Context) {
     await ctx.reply(
-      '🆘 **Bot de Expedientes IKE v3.0 Multitenant**\n\n' +
-        '📋 **Comandos:**\n' +
+      '🆘 **Bot de Expedientes IKE v4.0 Multitenant con Trazabilidad**\n\n' +
+        '📋 **Comandos básicos:**\n' +
         '• `/registrar` - Registrar tu empresa\n' +
         '• `/credenciales` - Ver datos de tu empresa\n' +
         '• `/estado` - Estado de tu cuenta\n' +
         '• `/help` - Esta ayuda\n\n' +
+        '📊 **Comandos de trazabilidad:**\n' +
+        '• `/resumen` - Estadísticas generales\n' +
+        '• `/expediente [número]` - Buscar expediente específico\n' +
+        '• `/historial` - Historial de cargas y CronJobs\n' +
+        '• `/pendientes` - Expedientes NO_APROBADO/NO_ENCONTRADO\n' +
+        '• `/revalidar` - Ejecutar revalidación manual\n' +
+        '• `/cargas` - Ver últimas cargas\n\n' +
         '📎 **Uso:**\n' +
         '1. Registra tu empresa con `/registrar`\n' +
         '2. Envía un archivo Excel\n' +
@@ -602,6 +666,397 @@ export class BotController {
         '🔐 **Multitenant:** Cada empresa usa sus propias credenciales del Portal IKE de forma segura.',
       { parse_mode: 'Markdown' }
     );
+  }
+
+  private async handleResumenCommand(ctx: Context): Promise<void> {
+    if (!ctx.from || !this.expedienteRepository) return;
+
+    const tenant = await this.tenantService.getTenantByTelegramId(BigInt(ctx.from.id));
+    if (!tenant) {
+      await ctx.reply('❌ Primero debes registrar tu empresa con `/registrar`');
+      return;
+    }
+
+    try {
+      const [stats, cargas, cronJobs] = await Promise.all([
+        this.expedienteRepository.getExpedienteStats(tenant.id),
+        this.expedienteRepository.findCargasByTenant(tenant.id, 3),
+        this.expedienteRepository.findCronJobExecutions(tenant.id, 3),
+      ]);
+
+      // Validar que stats tiene el campo pendientes
+      const estadisticas = stats as {
+        total: number;
+        aprobados: number;
+        pendientes: number;
+        noAprobados: number;
+        noEncontrados: number;
+        tasaAprobacion: number;
+      };
+
+      const ultimaCarga = cargas.length > 0 ? cargas[0] : null;
+      const ultimoCronJob = cronJobs.length > 0 ? cronJobs[0] : null;
+
+      const message =
+        `📊 **RESUMEN - ${tenant.companyName}**\n\n` +
+        `**📈 Estadísticas generales:**\n` +
+        `• Total expedientes: **${estadisticas.total}**\n` +
+        `• ✅ Aprobados: **${estadisticas.aprobados}** (${estadisticas.tasaAprobacion.toFixed(1)}%)\n` +
+        `• ⏳ Pendientes: **${estadisticas.pendientes}**\n` +
+        `• ❌ No aprobados: **${estadisticas.noAprobados}**\n` +
+        `• 🔍 No encontrados: **${estadisticas.noEncontrados}**\n\n` +
+        `**📁 Última carga:**\n` +
+        `${
+          ultimaCarga
+            ? `• Archivo: ${ultimaCarga.nombreArchivo}\n` +
+              `• Fecha: ${ultimaCarga.fechaProcesamiento.toLocaleDateString()}\n` +
+              `• Procesados: ${ultimaCarga.totalExpedientes} expedientes\n` +
+              `• Tasa aprobación: ${ultimaCarga.getPorcentajeAprobacion().toFixed(1)}%`
+            : '• No hay cargas registradas'
+        }\n\n` +
+        `**🤖 Último CronJob:**\n` +
+        `${
+          ultimoCronJob
+            ? `• Fecha: ${ultimoCronJob.fechaInicio.toLocaleDateString()} ${ultimoCronJob.fechaInicio.toLocaleTimeString()}\n` +
+              `• Procesados: ${ultimoCronJob.totalProcesados}\n` +
+              `• Cambios a aprobado: ${ultimoCronJob.cambiosAprobado}\n` +
+              `• Duración: ${ultimoCronJob.getDuracionFormateada()}`
+            : '• No hay ejecuciones recientes'
+        }`;
+
+      await ctx.reply(message, { parse_mode: 'Markdown' });
+    } catch (error) {
+      console.error('Error en comando resumen:', error);
+      await ctx.reply('❌ Error obteniendo el resumen');
+    }
+  }
+
+  private async handleExpedienteCommand(ctx: Context): Promise<void> {
+    if (!ctx.from || !this.expedienteRepository) return;
+
+    const tenant = await this.tenantService.getTenantByTelegramId(BigInt(ctx.from.id));
+    if (!tenant) {
+      await ctx.reply('❌ Primero debes registrar tu empresa con `/registrar`');
+      return;
+    }
+
+    const command = (ctx.message as any)?.text?.split(' ');
+    const numeroExpediente = command?.length > 1 ? command[1] : null;
+
+    if (!numeroExpediente) {
+      await ctx.reply(
+        '⚠️ **Uso correcto:**\n\n' +
+          '`/expediente NUMERO_EXPEDIENTE`\n\n' +
+          'Ejemplo: `/expediente EXP-2024-001`',
+        { parse_mode: 'Markdown' }
+      );
+      return;
+    }
+
+    try {
+      const expediente = await this.expedienteRepository.findByTenantAndNumero(
+        tenant.id,
+        numeroExpediente
+      );
+
+      if (!expediente) {
+        await ctx.reply(
+          `❌ **Expediente no encontrado:**\n\n` +
+            `• Número: ${numeroExpediente}\n` +
+            `• Empresa: ${tenant.companyName}\n\n` +
+            `Verifica que el número sea correcto.`,
+          { parse_mode: 'Markdown' }
+        );
+        return;
+      }
+
+      const calificacionIcon = {
+        [CalificacionExpediente.APROBADO]: '✅',
+        [CalificacionExpediente.PENDIENTE]: '⏳',
+        [CalificacionExpediente.NO_APROBADO]: '❌',
+        [CalificacionExpediente.NO_ENCONTRADO]: '🔍',
+      };
+
+      let message =
+        `📋 **EXPEDIENTE: ${expediente.numero}**\n\n` +
+        `${calificacionIcon[expediente.calificacion]} **Estado:** ${expediente.calificacion}\n` +
+        `💰 **Costo actual:** €${expediente.costo}\n` +
+        `📝 **Motivo:** ${expediente.motivoCalificacion}\n` +
+        `📅 **Primera versión:** ${expediente.fechaPrimeraVersion.toLocaleDateString()}\n` +
+        `🔄 **Última actualización:** ${expediente.fechaUltimaActualizacion.toLocaleDateString()}\n` +
+        `📊 **Total versiones:** ${expediente.versiones.length}\n\n` +
+        `**📈 Historial de cambios:**\n`;
+
+      const versiones = expediente.versiones.slice(-5); // Últimas 5 versiones
+      versiones.forEach((version) => {
+        const tipoIcon = version.isCreacion() ? '✨' : version.isCambioCosto() ? '💰' : '🔄';
+        message += `${tipoIcon} ${version.createdAt.toLocaleDateString()} - ${version.calificacionNueva}`;
+        if (version.costoAnterior && version.costoAnterior !== version.costoNuevo) {
+          message += ` (€${version.costoAnterior} → €${version.costoNuevo})`;
+        }
+        message += '\n';
+      });
+
+      if (expediente.versiones.length > 5) {
+        message += `... y ${expediente.versiones.length - 5} versiones anteriores\n`;
+      }
+
+      await ctx.reply(message, { parse_mode: 'Markdown' });
+    } catch (error) {
+      console.error('Error buscando expediente:', error);
+      await ctx.reply('❌ Error buscando el expediente');
+    }
+  }
+
+  private async handlePendientesCommand(ctx: Context): Promise<void> {
+    if (!ctx.from || !this.expedienteRepository || !this.revalidacionUseCase) return;
+
+    const tenant = await this.tenantService.getTenantByTelegramId(BigInt(ctx.from.id));
+    if (!tenant) {
+      await ctx.reply('❌ Primero debes registrar tu empresa con `/registrar`');
+      return;
+    }
+
+    try {
+      const pendientes = await this.revalidacionUseCase.getExpedientesPendientes(tenant.id);
+
+      if (pendientes.total === 0) {
+        await ctx.reply(
+          `🎉 **¡Excelente noticia!**\n\n` +
+            `No tienes expedientes pendientes.\n` +
+            `Todos tus expedientes están **APROBADOS**. ✅`,
+          { parse_mode: 'Markdown' }
+        );
+        return;
+      }
+
+      // Obtener algunos ejemplos de expedientes pendientes
+      const expedientesPendientes = await this.expedienteRepository.findByTenantAndCalificaciones(
+        tenant.id,
+        [CalificacionExpediente.PENDIENTE]
+      );
+
+      const expedientesNoAprobados = await this.expedienteRepository.findByTenantAndCalificaciones(
+        tenant.id,
+        [CalificacionExpediente.NO_APROBADO]
+      );
+
+      const expedientesNoEncontrados =
+        await this.expedienteRepository.findByTenantAndCalificaciones(tenant.id, [
+          CalificacionExpediente.NO_ENCONTRADO,
+        ]);
+
+      let message =
+        `⚠️ **EXPEDIENTES PENDIENTES**\n\n` +
+        `**📊 Resumen:**\n` +
+        `• ⏳ Pendientes validación: **${pendientes.pendientes}**\n` +
+        `• ❌ No aprobados: **${pendientes.noAprobados}**\n` +
+        `• 🔍 No encontrados: **${pendientes.noEncontrados}**\n` +
+        `• **Total pendientes: ${pendientes.total}**\n\n`;
+
+      if (expedientesPendientes.length > 0) {
+        message += `**⏳ Algunos PENDIENTES:**\n`;
+        expedientesPendientes.slice(0, 3).forEach((exp) => {
+          message += `• ${exp.numero} - €${exp.costo}\n`;
+        });
+        if (expedientesPendientes.length > 3) {
+          message += `... y ${expedientesPendientes.length - 3} más\n`;
+        }
+        message += '\n';
+      }
+
+      if (expedientesNoAprobados.length > 0) {
+        message += `**❌ Algunos NO APROBADOS:**\n`;
+        expedientesNoAprobados.slice(0, 3).forEach((exp) => {
+          message += `• ${exp.numero} - €${exp.costo}\n`;
+        });
+        if (expedientesNoAprobados.length > 3) {
+          message += `... y ${expedientesNoAprobados.length - 3} más\n`;
+        }
+        message += '\n';
+      }
+
+      if (expedientesNoEncontrados.length > 0) {
+        message += `**🔍 Algunos NO ENCONTRADOS:**\n`;
+        expedientesNoEncontrados.slice(0, 3).forEach((exp) => {
+          message += `• ${exp.numero} - €${exp.costo}\n`;
+        });
+        if (expedientesNoEncontrados.length > 3) {
+          message += `... y ${expedientesNoEncontrados.length - 3} más\n`;
+        }
+        message += '\n';
+      }
+
+      message += `💡 **Tip:** Usa \`/revalidar\` para intentar aprobar algunos expedientes automáticamente.`;
+
+      await ctx.reply(message, { parse_mode: 'Markdown' });
+    } catch (error) {
+      console.error('Error obteniendo pendientes:', error);
+      await ctx.reply('❌ Error obteniendo expedientes pendientes');
+    }
+  }
+
+  private async handleRevalidarCommand(ctx: Context): Promise<void> {
+    if (!ctx.from || !this.revalidacionUseCase) return;
+
+    const tenant = await this.tenantService.getTenantByTelegramId(BigInt(ctx.from.id));
+    if (!tenant) {
+      await ctx.reply('❌ Primero debes registrar tu empresa con `/registrar`');
+      return;
+    }
+
+    try {
+      const processingMsg = await ctx.reply('🤖 Iniciando revalidación manual...');
+
+      const resultado = await this.revalidacionUseCase.execute({
+        tenantId: tenant.id,
+        maxBatchSize: 500,
+        notifyOnChanges: false,
+      });
+
+      let message =
+        `🤖 **REVALIDACIÓN COMPLETADA**\n\n` +
+        `**📊 Resultados:**\n` +
+        `• Total procesados: **${resultado.totalProcesados}**\n` +
+        `• Nuevos aprobados: **${resultado.cambiosAprobado}** ✅\n` +
+        `• Siguen no aprobados: ${resultado.permanecenNoAprobado}\n` +
+        `• Siguen no encontrados: ${resultado.permanecenNoEncontrado}\n` +
+        `• Cambios de costo: ${resultado.cambiosCosto}\n` +
+        `• Duración: ${resultado.duracionFormateada}\n\n`;
+
+      if (resultado.cambiosAprobado > 0) {
+        message += `🎉 **¡${resultado.cambiosAprobado} expedientes fueron aprobados automáticamente!**\n\n`;
+
+        if (resultado.expedientesCambiados.length > 0) {
+          message += `**🔄 Cambios principales:**\n`;
+          resultado.expedientesCambiados.slice(0, 3).forEach((cambio) => {
+            if (cambio.calificacionNueva === CalificacionExpediente.APROBADO) {
+              message += `✅ ${cambio.numero} → APROBADO\n`;
+            }
+          });
+          if (resultado.expedientesCambiados.length > 3) {
+            message += `... y ${resultado.expedientesCambiados.length - 3} cambios más\n`;
+          }
+        }
+      } else if (resultado.totalProcesados > 0) {
+        message += `ℹ️ No se encontraron expedientes que puedan ser aprobados automáticamente en este momento.`;
+      } else {
+        message += `✅ No hay expedientes pendientes para revalidar.`;
+      }
+
+      await ctx.telegram.editMessageText(
+        ctx.chat!.id,
+        processingMsg.message_id,
+        undefined,
+        message,
+        { parse_mode: 'Markdown' }
+      );
+    } catch (error) {
+      console.error('Error en revalidación manual:', error);
+      await ctx.reply('❌ Error ejecutando la revalidación manual');
+    }
+  }
+
+  private async handleHistorialCommand(ctx: Context): Promise<void> {
+    if (!ctx.from || !this.expedienteRepository) return;
+
+    const tenant = await this.tenantService.getTenantByTelegramId(BigInt(ctx.from.id));
+    if (!tenant) {
+      await ctx.reply('❌ Primero debes registrar tu empresa con `/registrar`');
+      return;
+    }
+
+    try {
+      const cronJobs = await this.expedienteRepository.findCronJobExecutions(tenant.id, 10);
+
+      if (cronJobs.length === 0) {
+        await ctx.reply(
+          `📈 **HISTORIAL DE CRONJOBS**\n\n` +
+            `No hay ejecuciones de CronJob registradas para tu empresa.\n\n` +
+            `Los CronJobs se ejecutan automáticamente para revalidar expedientes pendientes.`,
+          { parse_mode: 'Markdown' }
+        );
+        return;
+      }
+
+      let message = `🤖 **HISTORIAL DE CRONJOBS**\n\n`;
+
+      cronJobs.forEach((cronJob, index) => {
+        const icon = cronJob.hayCambios() ? '🎯' : '📊';
+        message += `${icon} **${cronJob.fechaInicio.toLocaleDateString()}** - ${cronJob.fechaInicio.toLocaleTimeString()}\n`;
+        message += `   • Procesados: ${cronJob.totalProcesados}\n`;
+        message += `   • Nuevos aprobados: ${cronJob.cambiosAprobado}\n`;
+        message += `   • Duración: ${cronJob.getDuracionFormateada()}\n`;
+        if (index < cronJobs.length - 1) message += '\n';
+      });
+
+      const totalCambios = cronJobs.reduce((sum, cj) => sum + cj.cambiosAprobado, 0);
+      const totalProcesados = cronJobs.reduce((sum, cj) => sum + cj.totalProcesados, 0);
+
+      message += `\n📊 **Estadísticas del historial:**\n`;
+      message += `• Total expedientes procesados: ${totalProcesados}\n`;
+      message += `• Total aprobaciones automáticas: ${totalCambios}\n`;
+      message += `• Ejecuciones registradas: ${cronJobs.length}`;
+
+      await ctx.reply(message, { parse_mode: 'Markdown' });
+    } catch (error) {
+      console.error('Error obteniendo historial:', error);
+      await ctx.reply('❌ Error obteniendo el historial de CronJobs');
+    }
+  }
+
+  private async handleCargasCommand(ctx: Context): Promise<void> {
+    if (!ctx.from || !this.expedienteRepository) return;
+
+    const tenant = await this.tenantService.getTenantByTelegramId(BigInt(ctx.from.id));
+    if (!tenant) {
+      await ctx.reply('❌ Primero debes registrar tu empresa con `/registrar`');
+      return;
+    }
+
+    try {
+      const cargas = await this.expedienteRepository.findCargasByTenant(tenant.id, 10);
+
+      if (cargas.length === 0) {
+        await ctx.reply(
+          `📁 **HISTORIAL DE CARGAS**\n\n` +
+            `No hay cargas registradas para tu empresa.\n\n` +
+            `Las cargas se registran automáticamente cuando subes archivos Excel.`,
+          { parse_mode: 'Markdown' }
+        );
+        return;
+      }
+
+      let message = `📁 **HISTORIAL DE CARGAS**\n\n`;
+
+      cargas.forEach((carga, index) => {
+        const icon = carga.esBaseline ? '🏁' : '📊';
+        const baselineText = carga.esBaseline ? ' (Baseline)' : '';
+
+        message += `${icon} **${carga.nombreArchivo}**${baselineText}\n`;
+        message += `   📅 ${carga.fechaProcesamiento.toLocaleDateString()} - ${carga.fechaProcesamiento.toLocaleTimeString()}\n`;
+        message += `   📊 Total: ${carga.totalExpedientes} | Aprobados: ${carga.aprobados} (${carga.getPorcentajeAprobacion().toFixed(1)}%)\n`;
+        message += `   🔢 Nuevos: ${carga.nuevosExpedientes} | Actualizados: ${carga.actualizados} | Duplicados: ${carga.duplicadosSinCambio}\n`;
+        if (carga.errores > 0) {
+          message += `   ❌ Errores: ${carga.errores}\n`;
+        }
+        if (index < cargas.length - 1) message += '\n';
+      });
+
+      const totalExpedientes = cargas.reduce((sum, c) => sum + c.totalExpedientes, 0);
+      const totalAprobados = cargas.reduce((sum, c) => sum + c.aprobados, 0);
+
+      message += `\n📊 **Estadísticas totales:**\n`;
+      message += `• Total expedientes cargados: ${totalExpedientes}\n`;
+      message += `• Total aprobados: ${totalAprobados}\n`;
+      message += `• Tasa aprobación promedio: ${totalExpedientes > 0 ? ((totalAprobados / totalExpedientes) * 100).toFixed(1) : '0'}%\n`;
+      message += `• Cargas realizadas: ${cargas.length}`;
+
+      await ctx.reply(message, { parse_mode: 'Markdown' });
+    } catch (error) {
+      console.error('Error obteniendo cargas:', error);
+      await ctx.reply('❌ Error obteniendo el historial de cargas');
+    }
   }
 
   private async handleTextMessage(ctx: Context) {
