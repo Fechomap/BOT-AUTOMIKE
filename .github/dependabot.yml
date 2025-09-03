@@ -1,0 +1,73 @@
+version: 2
+updates:
+  # Mantener dependencias de npm actualizadas
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "@Fechomap" # Cambiar por tu username de GitHub
+    assignees:
+      - "@Fechomap" # Cambiar por tu username de GitHub
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "automated"
+    ignore:
+      # Ignorar actualizaciones major de estas dependencias críticas
+      - dependency-name: "@prisma/client"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "prisma"
+        update-types: ["version-update:semver-major"]
+    groups:
+      # Agrupar actualizaciones relacionadas
+      eslint:
+        patterns:
+          - "@typescript-eslint/*"
+          - "eslint*"
+      types:
+        patterns:
+          - "@types/*"
+      prisma:
+        patterns:
+          - "prisma"
+          - "@prisma/*"
+
+  # Mantener GitHub Actions actualizadas
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "10:00"
+    reviewers:
+      - "@Fechomap" # Cambiar por tu username de GitHub
+    assignees:
+      - "@Fechomap" # Cambiar por tu username de GitHub
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "github-actions"
+      - "automated"
+
+  # Mantener Docker base images actualizadas
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "09:00"
+    reviewers:
+      - "@Fechomap" # Cambiar por tu username de GitHub
+    commit-message:
+      prefix: "docker"
+    labels:
+      - "docker"
+      - "automated"

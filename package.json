@@ -1,7 +1,7 @@
 {
   "name": "expedientes-ike-bot",
   "version": "1.0.0",
-  "description": "Bot de Telegram para automatización de validación de expedientes IKE",
+  "description": "Bot de Telegram multi-tenant para automatización de validación de expedientes IKE con CI/CD",
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc",
@@ -16,6 +16,10 @@
     "format:check": "prettier --check \"src/**/*.{ts,js,json}\"",
     "type-check": "tsc --noEmit",
     "quality": "npm run format:check && npm run lint && npm run type-check",
+    "pre-flight": "./scripts/pre-flight-check.sh",
+    "ci-simulation": "./scripts/github-ci-simulation.sh",
+    "quick-check": "./scripts/quick-check.sh",
+    "pre-commit": "npm run quality && npm run build",
     "prepare": "husky install || true",
     "postinstall": "prisma generate"
   },
@@ -25,9 +29,22 @@
     "expedientes",
     "ike",
     "automation",
-    "excel"
+    "excel",
+    "multi-tenant",
+    "ci-cd",
+    "puppeteer",
+    "prisma",
+    "typescript"
   ],
   "author": "IKE Team",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Fechomap/BOT-AUTOMIKE.git"
+  },
+  "homepage": "https://github.com/Fechomap/BOT-AUTOMIKE#readme",
+  "bugs": {
+    "url": "https://github.com/Fechomap/BOT-AUTOMIKE/issues"
+  },
   "license": "MIT",
   "dependencies": {
     "@prisma/client": "^5.7.0",

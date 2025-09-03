@@ -24,53 +24,16 @@ COPY . .
 # Build del proyecto
 RUN npm run build
 
-# Imagen de producción
-FROM node:18-slim AS runtime
+# Imagen de producción optimizada para Puppeteer
+FROM ghcr.io/puppeteer/puppeteer:21.11.0 AS runtime
 
-# Instalar dependencias mínimas del sistema + Google Chrome
+# Cambiar a usuario root temporalmente para instalar dependencias
+USER root
+
+# Instalar dependencias adicionales
 RUN apt-get update && apt-get install -y \
     openssl \
     ca-certificates \
-    wget \
-    gnupg \
-    && wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
-    && apt-get update \
-    && apt-get install -y \
-    google-chrome-stable \
-    fonts-liberation \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libatk1.0-0 \
-    libcairo2 \
-    libcups2 \
-    libdbus-1-3 \
-    libexpat1 \
-    libfontconfig1 \
-    libgbm1 \
-    libgcc1 \
-    libglib2.0-0 \
-    libgtk-3-0 \
-    libnspr4 \
-    libnss3 \
-    libpango-1.0-0 \
-    libpangocairo-1.0-0 \
-    libstdc++6 \
-    libx11-6 \
-    libx11-xcb1 \
-    libxcb1 \
-    libxcomposite1 \
-    libxcursor1 \
-    libxdamage1 \
-    libxext6 \
-    libxfixes3 \
-    libxi6 \
-    libxrandr2 \
-    libxrender1 \
-    libxss1 \
-    libxtst6 \
-    lsb-release \
-    xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -83,20 +46,17 @@ COPY --from=builder /app/prisma ./prisma
 
 # Variables de entorno
 ENV NODE_ENV=production
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=false
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
 
-# Usuario no-root para seguridad con directorio home
-RUN groupadd -r appuser && useradd -r -g appuser -m appuser
-RUN chown -R appuser:appuser /app
-RUN mkdir -p /home/appuser/.local/share/applications /app/temp
-RUN chmod 755 /home/appuser /home/appuser/.local /home/appuser/.local/share /home/appuser/.local/share/applications
-RUN chmod 777 /app/temp /tmp
+# Crear directorio temp y configurar permisos
+RUN mkdir -p /app/temp && chmod 777 /app/temp
 
-USER appuser
+# Cambiar de vuelta al usuario puppeteer (usuario por defecto de la imagen)
+USER pptruser
 
-# Variables de entorno adicionales para Puppeteer
-ENV HOME=/home/appuser
-ENV XDG_DATA_HOME=/home/appuser/.local/share
+# Variables de entorno para el usuario puppeteer
+ENV HOME=/home/pptruser
 
 # Puerto (si necesitas uno en el futuro)
 EXPOSE 3000

@@ -1,85 +1,95 @@
-# 🤖 Bot de Telegram - Expedientes IKE
+# 🤖 Expedientes IKE Bot
 
-Bot de Telegram para automatizar la validación y liberación de expedientes del sistema IKE con multi-tenancy, persistencia completa y jobs automáticos.
+Bot de Telegram para automatización de validación de expedientes IKE con sistema multi-tenant. Permite a múltiples empresas gestionar sus expedientes de forma independiente y segura.
 
-## 🚀 Características
+## ✨ Características
 
-### ✅ **Funcionalidades Principales**
-- **Multi-tenancy** - Múltiples organizaciones en una instancia
-- **Autenticación completa** - Registro, login y gestión de sesiones
-- **Procesamiento de Excel** - Soporte para formatos estándar y simplificado
-- **Validación automática** - 3 lógicas configurables de liberación
-- **Automatización web** - Integración con portal IKE via Puppeteer
-- **Trazabilidad completa** - Historial de todas las validaciones
-- **Jobs automáticos** - Revalidación diaria de expedientes pendientes
-- **Estadísticas avanzadas** - Reportes y métricas detalladas
+- 🏢 **Multi-tenant**: Soporte para múltiples empresas con credenciales independientes
+- 📊 **Procesamiento de Excel**: Lectura y validación automática de expedientes
+- 🔍 **Automatización Web**: Integración con Portal IKE usando Puppeteer
+- 📱 **Bot de Telegram**: Interfaz conversacional intuitiva
+- 🔐 **Seguridad**: Encriptación de credenciales y manejo seguro de datos
+- 🐳 **Docker**: Containerización completa para fácil deployment
+- 🚀 **CI/CD**: Pipeline automático con GitHub Actions
 
-### 🔧 **Lógicas de Validación**
-1. **Costo Exacto** (Siempre activa) - Libera si el costo coincide exactamente
-2. **Margen ±10%** (Opcional) - Libera si está dentro del ±10% del costo guardado
-3. **Costo Superior** (Opcional) - Libera si el costo del sistema es mayor
+## 🏗️ Arquitectura
 
-## 🏗️ Arquitectura Técnica
+El proyecto sigue los principios de **Arquitectura Hexagonal (Clean Architecture)**:
 
-### **Stack Tecnológico**
-- **Backend**: Node.js + TypeScript
-- **Bot Framework**: Telegraf
-- **Base de Datos**: PostgreSQL + Prisma ORM
-- **Web Automation**: Puppeteer
-- **Excel Processing**: ExcelJS
-- **Jobs**: node-cron
-- **Deployment**: Railway + Docker
-
-### **Estructura del Proyecto**
 ```
 src/
-├── bot/                    # Lógica del bot de Telegram
-│   ├── commands/           # Comandos (/start, /help)
-│   ├── handlers/           # Manejadores de eventos
-│   ├── keyboards/          # Teclados inline y reply
-│   └── scenes/            # Flujos conversacionales
-├── core/                  # Lógica de negocio
-│   ├── validation/        # Lógicas de validación
-│   ├── automation/        # Web scraping
-│   └── excel/            # Procesamiento Excel
-├── database/             # Capa de datos
-│   ├── prisma/          # Cliente y configuración
-│   └── repositories/    # Repositorios de datos
-├── services/            # Servicios de aplicación
-├── types/              # Definiciones TypeScript
-└── utils/             # Utilidades generales
+├── domain/           # Entidades y lógica de negocio
+├── application/      # Casos de uso
+├── infrastructure/   # Implementaciones (DB, APIs, Web)
+└── presentation/     # Controladores (Telegram Bot)
 ```
 
-## ⚙️ Configuración
+## 🚀 Inicio Rápido
 
-### **Variables de Entorno**
+### Prerrequisitos
+
+- Node.js 18+
+- PostgreSQL
+- Token de Bot de Telegram
+- Docker (opcional pero recomendado)
+
+### Instalación Local
+
+1. **Clonar el repositorio**
+   ```bash
+   git clone https://github.com/Fechomap/BOT-AUTOMIKE.git
+   cd expedientes-ike-bot
+   ```
+
+2. **Instalar dependencias**
+   ```bash
+   npm install
+   ```
+
+3. **Configurar variables de entorno**
+   ```bash
+   # Crear archivo .env con tus credenciales
+   touch .env
+   # Agregar las siguientes variables:
+   # BOT_TOKEN="your-telegram-bot-token"
+   # DATABASE_URL="your-postgresql-connection-string" 
+   # ENCRYPTION_KEY="your-32-character-secret-key"
+   ```
+
+4. **Configurar base de datos**
+   ```bash
+   npx prisma migrate dev
+   npx prisma generate
+   ```
+
+5. **Ejecutar en desarrollo**
+   ```bash
+   npm run dev
+   ```
+
+### Docker (Recomendado)
+
 ```bash
-# Base de datos PostgreSQL
-DATABASE_URL="postgresql://user:pass@host:port/db"
+# Build
+docker build -t expedientes-ike-bot .
 
-# Bot de Telegram
-BOT_TOKEN="your_telegram_bot_token"
-BOT_USERNAME="your_bot_username"
-
-# Portal IKE
-IKE_PORTAL_URL="https://portalproveedores.ikeasistencia.com"
-
-# Seguridad
-ENCRYPTION_KEY="your-secure-encryption-key"
-
-# Jobs automáticos
-ENABLE_CRON_JOBS=true
-REVALIDATION_CRON="0 6 * * *"  # Diario a las 6 AM
-
-# Puppeteer
-PUPPETEER_HEADLESS=true
-PUPPETEER_TIMEOUT=30000
-
-# Aplicación
-NODE_ENV="production"
-LOG_LEVEL="info"
-PORT=3000
+# Run
+docker run -d \
+  --name expedientes-bot \
+  -e BOT_TOKEN=tu_token \
+  -e DATABASE_URL=tu_database_url \
+  expedientes-ike-bot
 ```
+
+## ⚙️ Variables de Entorno
+
+| Variable | Descripción | Requerida |
+|----------|-------------|-----------|
+| `BOT_TOKEN` | Token del bot de Telegram | ✅ |
+| `DATABASE_URL` | URL de conexión PostgreSQL | ✅ |
+| `IKE_USERNAME` | Usuario global IKE (opcional) | ❌ |
+| `IKE_PASSWORD` | Contraseña global IKE (opcional) | ❌ |
+| `IKE_HEADLESS` | Ejecutar Chrome sin interfaz gráfica | ❌ |
 
 ### **Base de Datos**
 ```bash
