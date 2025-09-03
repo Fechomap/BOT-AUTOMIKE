@@ -1,9 +1,9 @@
 name: Deploy to Production
 
 on:
-  push:
-    branches: [main]
-  workflow_dispatch: # Permite ejecución manual
+  # push:
+  #   branches: [main]  # Deshabilitado - Railway se actualiza automáticamente con git push
+  workflow_dispatch: # Solo ejecución manual
 
 jobs:
   deploy:
