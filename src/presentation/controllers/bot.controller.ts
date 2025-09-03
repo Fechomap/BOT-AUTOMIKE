@@ -289,6 +289,7 @@ export class BotController {
     const sessionId = params[params.length - 1];
 
     try {
+      // Responder INMEDIATAMENTE al callback para evitar timeout
       await ctx.answerCbQuery();
 
       const session = await this.sessionService.getSession(sessionId);
@@ -305,7 +306,11 @@ export class BotController {
           await this.showProcessPreview(ctx, session);
           break;
         case 'start':
-          await this.startProcessing(ctx, session);
+          // Para procesos largos, usar procesamiento asíncrono sin await
+          this.startProcessingAsync(ctx, session).catch((error) => {
+            console.error('❌ Error en procesamiento asíncrono:', error);
+            ctx.reply(`❌ Error durante el procesamiento: ${error.message}`);
+          });
           break;
         case 'back':
           await this.updateLogicConfiguration(ctx, session);
@@ -313,7 +318,12 @@ export class BotController {
       }
     } catch (error) {
       console.error('Error handling callback:', error);
-      await ctx.answerCbQuery('❌ Error procesando acción');
+      try {
+        await ctx.answerCbQuery('❌ Error procesando acción');
+      } catch (cbError) {
+        // Si el callback ya expiró, solo logear el error
+        console.error('❌ Callback ya expirado:', cbError);
+      }
     }
   }
 
@@ -424,7 +434,7 @@ export class BotController {
     }
   }
 
-  private async startProcessing(ctx: Context, session: UserSession) {
+  private async startProcessingAsync(ctx: Context, session: UserSession) {
     if (!session.filePath || !ctx.from) return;
 
     const tenant = await this.tenantService.getTenantByTelegramId(BigInt(ctx.from.id));
