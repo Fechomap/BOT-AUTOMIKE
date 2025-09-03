@@ -85,10 +85,18 @@ COPY --from=builder /app/prisma ./prisma
 ENV NODE_ENV=production
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
-# Usuario no-root para seguridad
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+# Usuario no-root para seguridad con directorio home
+RUN groupadd -r appuser && useradd -r -g appuser -m appuser
 RUN chown -R appuser:appuser /app
+RUN mkdir -p /home/appuser/.local/share/applications /app/temp
+RUN chmod 755 /home/appuser /home/appuser/.local /home/appuser/.local/share /home/appuser/.local/share/applications
+RUN chmod 777 /app/temp /tmp
+
 USER appuser
+
+# Variables de entorno adicionales para Puppeteer
+ENV HOME=/home/appuser
+ENV XDG_DATA_HOME=/home/appuser/.local/share
 
 # Puerto (si necesitas uno en el futuro)
 EXPOSE 3000

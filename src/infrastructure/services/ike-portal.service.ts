@@ -81,7 +81,14 @@ export class IkePortalService {
         '--disable-features=VizDisplayCompositor',
         '--no-first-run',
         '--no-default-browser-check',
-        '--disable-extensions'
+        '--disable-extensions',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
+        '--disable-crash-reporter',
+        '--disable-ipc-flooding-protection',
+        '--single-process', // Importante para contenedores
+        '--no-zygote'
       ],
       defaultViewport: { width: 1200, height: 800 },
       timeout: 60000
