@@ -74,3 +74,6 @@ Thumbs.db
 
 # Prisma
 prisma/migrations/migration_lock.toml
+
+# Railway local development
+.railway/

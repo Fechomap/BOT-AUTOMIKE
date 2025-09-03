@@ -1,0 +1,19 @@
+[phases.setup]
+nixPkgs = ['nodejs_18', 'npm']
+
+[phases.install]
+cmds = [
+  'npm ci --omit=dev --ignore-scripts',
+  'npx prisma generate',
+  'node install-chromium.js'
+]
+
+[phases.build]
+cmds = ['npm run build']
+
+[start]
+cmd = 'npm start'
+
+[variables]
+NODE_ENV = 'production'
+PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = 'true'

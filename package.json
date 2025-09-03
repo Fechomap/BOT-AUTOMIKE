@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc",
     "build:simple": "tsc -p tsconfig.simple.json",
+    "build:prod": "prisma generate && tsc",
     "start": "node dist/main.js",
     "dev": "nodemon --exec ts-node src/main.ts",
     "dev:watch": "ts-node --watch src/main.ts",
@@ -15,7 +16,8 @@
     "format:check": "prettier --check \"src/**/*.{ts,js,json}\"",
     "type-check": "tsc --noEmit",
     "quality": "npm run format:check && npm run lint && npm run type-check",
-    "prepare": "husky install || true"
+    "prepare": "husky install || true",
+    "postinstall": "prisma generate"
   },
   "keywords": [
     "telegram",
@@ -38,9 +40,6 @@
     "joi": "^17.11.0",
     "multer": "^1.4.5-lts.1",
     "node-cron": "^3.0.3",
-    "puppeteer": "^21.7.0",
-    "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "telegraf": "^4.15.0",
     "telegraf-session-local": "^2.1.0",
     "tsconfig-paths": "^4.2.0",
@@ -67,5 +66,10 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "optionalDependencies": {
+    "puppeteer": "^21.7.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
   }
 }
