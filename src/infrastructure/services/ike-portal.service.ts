@@ -32,32 +32,73 @@ export class IkePortalService {
   }
 
   /**
-   * Espera a que la página se estabilice y no haya más navegación
+   * Verifica que el frame principal esté disponible de manera segura
+   */
+  private async waitForMainFrame(): Promise<void> {
+    if (!this.page) return;
+    
+    let attempts = 0;
+    const maxAttempts = 5;
+    
+    while (attempts < maxAttempts) {
+      try {
+        const mainFrame = this.page.mainFrame();
+        if (mainFrame) {
+          console.log('✅ Frame principal disponible');
+          return;
+        }
+      } catch (error) {
+        console.log(`⏳ Esperando frame principal (intento ${attempts + 1}/${maxAttempts})`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        attempts++;
+      }
+    }
+    
+    throw new Error('Frame principal no disponible después de múltiples intentos');
+  }
+
+  /**
+   * Espera a que la página se estabilice y el frame principal esté disponible
    */
   private async waitForStableNavigation(): Promise<void> {
     if (!this.page) return;
     
     let attempts = 0;
-    const maxAttempts = 10;
+    const maxAttempts = 15; // Aumentar intentos
     
     while (attempts < maxAttempts) {
       try {
-        // Esperar un momento y luego verificar si la página está estable
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Esperar un momento antes de verificar
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        // Verificar que el frame principal esté disponible
+        try {
+          const mainFrame = this.page.mainFrame();
+          if (!mainFrame) {
+            throw new Error('Main frame not available');
+          }
+        } catch (frameError) {
+          console.log(`⏳ Frame principal no disponible (intento ${attempts + 1}/${maxAttempts})`);
+          attempts++;
+          continue;
+        }
         
         // Intentar obtener el título - si falla, la página aún se está cargando
         await this.page.title();
         
+        // Verificar que podemos acceder a elementos del DOM
+        await this.page.evaluate(() => document.readyState);
+        
         // Si llegamos aquí, la página está estable
-        console.log('📋 Página estable detectada');
+        console.log('📋 Página y frame principal estables');
         return;
         
       } catch (error) {
         attempts++;
-        console.log(`⏳ Esperando estabilización (intento ${attempts}/${maxAttempts})`);
+        console.log(`⏳ Esperando estabilización (intento ${attempts}/${maxAttempts}): ${(error as Error).message}`);
         
         if (attempts >= maxAttempts) {
-          console.log('⚠️ Página puede no estar completamente estable, continuando...');
+          console.log('⚠️ Página puede no estar completamente estable, continuando con precaución...');
           return;
         }
       }
@@ -105,7 +146,7 @@ export class IkePortalService {
     
     // Configuración base
     const launchOptions: any = {
-      headless: this.config.headless,
+      headless: this.config.headless, // Usar configuración del constructor
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -119,9 +160,8 @@ export class IkePortalService {
         '--disable-backgrounding-occluded-windows',
         '--disable-renderer-backgrounding',
         '--disable-crash-reporter',
-        '--disable-ipc-flooding-protection',
-        '--single-process', // Importante para contenedores
-        '--no-zygote'
+        '--disable-ipc-flooding-protection'
+        // Removidos --single-process y --no-zygote que causan problemas con frames
       ],
       defaultViewport: { width: 1200, height: 800 },
       timeout: 60000
@@ -162,7 +202,7 @@ export class IkePortalService {
     try {
       // Navegar a la página de login con manejo robusto de frames
       await this.page.goto('https://portalproveedores.ikeasistencia.com', {
-        waitUntil: 'domcontentloaded',
+        waitUntil: 'networkidle2', // Esperar a que la red esté inactiva
         timeout: this.config.timeout
       });
 
@@ -171,7 +211,10 @@ export class IkePortalService {
       // Esperar a que la página se estabilice y no haya más navegación
       await this.waitForStableNavigation();
 
-      console.log('✅ Página estabilizada, buscando campos de login...');
+      // Verificar que el frame principal esté disponible antes de continuar
+      await this.waitForMainFrame();
+
+      console.log('✅ Página estabilizada y frame principal disponible, buscando campos de login...');
       
       // Buscar cualquier input de texto primero
       const inputs = await this.page.$$('input');
