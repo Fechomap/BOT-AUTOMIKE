@@ -25,13 +25,14 @@ COPY . .
 RUN npm run build
 
 # Imagen de producción optimizada para Puppeteer
-FROM ghcr.io/puppeteer/puppeteer:21.11.0 AS runtime
+FROM ghcr.io/puppeteer/puppeteer:24.18.0 AS runtime
 
 # Cambiar a usuario root temporalmente para instalar dependencias
 USER root
 
-# Instalar dependencias adicionales
-RUN apt-get update && apt-get install -y \
+# Limpiar repositorios de Chrome que vienen con la imagen para evitar errores GPG
+RUN rm -f /etc/apt/sources.list.d/google-chrome*.list && \
+    apt-get update && apt-get install -y \
     openssl \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*

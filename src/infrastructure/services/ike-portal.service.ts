@@ -359,7 +359,7 @@ export class IkePortalService {
       }
 
       console.log('✅ Botón aceptar clickeado, esperando modal...');
-      await this.page.waitForTimeout(2000);
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // Confirmar en el modal (basado en la app principal)
       const confirmed = await this.page.evaluate(() => {
@@ -376,7 +376,7 @@ export class IkePortalService {
 
       if (confirmed) {
         console.log('✅ Expediente aceptado exitosamente');
-        await this.page.waitForTimeout(3000);
+        await new Promise((resolve) => setTimeout(resolve, 3000));
         return true;
       } else {
         console.log('❌ No se pudo confirmar la aceptación en el modal');
@@ -409,7 +409,7 @@ export class IkePortalService {
             timeout: this.config.timeout,
           }
         );
-        await this.page.waitForTimeout(1500);
+        await new Promise((resolve) => setTimeout(resolve, 1500));
       } else {
         console.log('📍 Ya en página de búsqueda, saltando navegación');
       }
@@ -442,7 +442,7 @@ export class IkePortalService {
 
       // Limpiar y escribir número de expediente como la app original
       await this.page.click(inputSelector, { clickCount: 3 });
-      await this.page.waitForTimeout(300);
+      await new Promise((resolve) => setTimeout(resolve, 300));
       await this.page.evaluate((sel) => {
         const el = document.querySelector(sel) as HTMLInputElement;
         if (el) el.value = '';
@@ -452,7 +452,7 @@ export class IkePortalService {
       for (const char of numeroExpediente.toString()) {
         await this.page.keyboard.type(char, { delay: 50 });
       }
-      await this.page.waitForTimeout(300);
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
       // Buscar y hacer click en botón como la app original
       const searchButton = await this.page.$$eval('button', (buttons) => {
@@ -474,7 +474,7 @@ export class IkePortalService {
         console.log('⚠️ No se encontró tabla de resultados');
       }
 
-      await this.page.waitForTimeout(1000);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
       // Verificar si el expediente fue encontrado
       const notFoundSelectors = [

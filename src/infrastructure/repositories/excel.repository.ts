@@ -1,6 +1,6 @@
 import { ExcelRepository } from '../../application/use-cases/process-excel.use-case';
 import { Expediente } from '../../domain/entities/expediente.entity';
-import * as XLSX from 'xlsx';
+import * as ExcelJS from 'exceljs';
 import * as fs from 'fs';
 
 export class ExcelRepositoryImpl implements ExcelRepository {
@@ -8,13 +8,24 @@ export class ExcelRepositoryImpl implements ExcelRepository {
     console.log(`📖 Leyendo Excel: ${filePath}`);
 
     try {
-      // Leer archivo Excel
-      const workbook = XLSX.readFile(filePath);
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
+      // Leer archivo Excel con ExcelJS
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.readFile(filePath);
+
+      const worksheet = workbook.worksheets[0];
+      if (!worksheet) {
+        throw new Error('No se encontró ninguna hoja en el archivo Excel');
+      }
 
       // Convertir a array de arrays
-      const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+      const data: any[][] = [];
+      worksheet.eachRow((row) => {
+        const rowData: any[] = [];
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          rowData.push(cell.value);
+        });
+        data.push(rowData);
+      });
 
       const expedientes: Expediente[] = [];
 
@@ -65,15 +76,24 @@ export class ExcelRepositoryImpl implements ExcelRepository {
         fs.mkdirSync('temp');
       }
 
-      // Crear workbook y worksheet
-      const workbook = XLSX.utils.book_new();
-      const worksheet = XLSX.utils.json_to_sheet(results);
+      // Crear workbook con ExcelJS
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Resultados');
 
-      // Agregar worksheet al workbook
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Resultados');
+      // Agregar headers si hay resultados
+      if (results.length > 0) {
+        const headers = Object.keys(results[0]);
+        worksheet.addRow(headers);
+
+        // Agregar datos
+        results.forEach((result) => {
+          const row = headers.map((header) => result[header]);
+          worksheet.addRow(row);
+        });
+      }
 
       // Escribir archivo
-      XLSX.writeFile(workbook, outputPath);
+      await workbook.xlsx.writeFile(outputPath);
 
       console.log(`✅ Archivo Excel generado: ${outputPath}`);
       return outputPath;
