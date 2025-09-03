@@ -1,4 +1,5 @@
 import puppeteer, { Browser, Page } from 'puppeteer';
+import { existsSync } from 'fs';
 
 export interface IkePortalConfig {
   username: string;
@@ -31,22 +32,75 @@ export class IkePortalService {
   }
 
   /**
+   * Detecta automáticamente la ruta del ejecutable de Chrome/Chromium
+   * Prioriza Google Chrome sobre Chromium
+   */
+  private getChromiumExecutablePath(): string | null {
+    const possiblePaths = [
+      // macOS - Chrome primero
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      '/Applications/Chromium.app/Contents/MacOS/Chromium',
+      
+      // Windows - Chrome primero  
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files\\Chromium\\Application\\chromium.exe',
+      'C:\\Program Files (x86)\\Chromium\\Application\\chromium.exe',
+      
+      // Linux (Docker/Railway) - Chrome primero si está disponible
+      '/usr/bin/google-chrome',
+      '/usr/bin/google-chrome-stable',
+      '/usr/bin/chromium',
+      '/usr/bin/chromium-browser'
+    ];
+
+    for (const path of possiblePaths) {
+      if (existsSync(path)) {
+        return path;
+      }
+    }
+
+    console.log('⚠️ No se encontró Chrome/Chromium instalado, usando Puppeteer default');
+    return null;
+  }
+
+  /**
    * Inicializa el navegador y hace login
    */
   async initialize(): Promise<void> {
     console.log('🚀 Inicializando navegador...');
     
-    this.browser = await puppeteer.launch({
-      headless: false,
-      executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    // Configuración base
+    const launchOptions: any = {
+      headless: this.config.headless,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
-        '--start-maximized'
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--disable-features=VizDisplayCompositor',
+        '--no-first-run',
+        '--no-default-browser-check',
+        '--disable-extensions'
       ],
-      defaultViewport: null,
+      defaultViewport: { width: 1200, height: 800 },
       timeout: 60000
-    });
+    };
+
+    // Auto-detectar ejecutable de Chrome/Chromium por plataforma
+    const executablePath = this.getChromiumExecutablePath();
+    if (executablePath) {
+      launchOptions.executablePath = executablePath;
+      console.log(`🌐 Usando navegador: ${executablePath}`);
+    }
+
+    // En desarrollo local, usar ventana maximizada
+    if (process.env.NODE_ENV !== 'production') {
+      launchOptions.args.push('--start-maximized');
+      launchOptions.defaultViewport = null;
+    }
+
+    this.browser = await puppeteer.launch(launchOptions);
 
     this.page = await this.browser.newPage();
     
