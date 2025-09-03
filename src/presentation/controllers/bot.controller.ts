@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import { ProcessExcelUseCase } from '../../application/use-cases/process-excel.use-case';
 import { TenantService } from '../../infrastructure/services/tenant.service';
 import { SessionService, UserSession } from '../../infrastructure/services/session.service';
+import { ProgressBarUtil } from '../../infrastructure/utils/progress-bar.util';
 
 interface RegistrationState {
   stage: 'company' | 'username' | 'password';
@@ -444,16 +445,40 @@ export class BotController {
     }
 
     try {
-      const processingMsg = await ctx.reply(
-        `🌐 **Iniciando proceso para ${tenant.companyName}**\n` +
-          `🚀 Abriendo portal IKE con tus credenciales...`
-      );
+      // Mensaje inicial con barra de progreso
+      const initialMessage = ProgressBarUtil.createInitialMessage(session.expedientesCount || 0);
+      const processingMsg = await ctx.reply(initialMessage, { parse_mode: 'Markdown' });
+      const startTime = new Date();
+
+      // Callback de progreso
+      const progressCallback = async (current: number, total: number, currentItem: string) => {
+        try {
+          const progressMessage = ProgressBarUtil.formatProgressBar({
+            current,
+            total,
+            currentItem,
+            startTime,
+          });
+
+          await ctx.telegram.editMessageText(
+            ctx.chat!.id,
+            processingMsg.message_id,
+            undefined,
+            progressMessage,
+            { parse_mode: 'Markdown' }
+          );
+        } catch (error) {
+          // Si no se puede editar el mensaje (muy frecuente), solo loguear sin interrumpir
+          console.log('Progreso silencioso:', `${current}/${total} - ${currentItem}`);
+        }
+      };
 
       // Procesar con credenciales específicas del tenant
       const result = await this.processExcelUseCase.execute({
         filePath: session.filePath,
         logicasActivas: session.logicasActivas,
         tenantId: tenant.id,
+        progressCallback,
       });
 
       // Registrar en historial
@@ -474,11 +499,12 @@ export class BotController {
       // Limpiar sesión
       await this.sessionService.cleanupSession(session.id);
 
-      // Mensaje final
+      // Mensaje final con tiempo total
+      const completionMessage = ProgressBarUtil.createCompletionMessage(result.total, startTime);
       const finalMessage =
-        `✅ **¡Procesamiento completado para ${tenant.companyName}!**\n\n` +
+        `${completionMessage}\n\n` +
+        `🏢 **Empresa:** ${tenant.companyName}\n` +
         `📊 **Resultados:**\n` +
-        `• Total: ${result.total}\n` +
         `• Liberados: ${result.aceptados}\n` +
         `• Pendientes: ${result.pendientes}\n` +
         `• Tasa liberación: ${result.tasaLiberacion.toFixed(1)}%\n\n` +

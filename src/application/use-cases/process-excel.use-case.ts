@@ -26,6 +26,7 @@ export interface ProcessExcelDTO {
     costoSuperior: boolean;
   };
   tenantId?: string; // ID del tenant para obtener credenciales específicas
+  progressCallback?: (current: number, total: number, currentItem: string) => Promise<void>;
 }
 
 export interface ProcessResultDTO {
@@ -87,9 +88,20 @@ export class ProcessExcelUseCase {
 
     // 3. Procesar cada expediente
     const results: ValidationResult[] = [];
+    const totalExpedientes = expedientes.length;
 
-    for (const expediente of expedientes) {
+    for (let i = 0; i < expedientes.length; i++) {
+      const expediente = expedientes[i];
       console.log(`🔍 Procesando expediente: ${expediente.numero}`);
+
+      // Callback de progreso si está disponible
+      if (dto.progressCallback) {
+        try {
+          await dto.progressCallback(i, totalExpedientes, expediente.numero);
+        } catch (error) {
+          console.error('Error en callback de progreso:', error);
+        }
+      }
 
       // Buscar en sistema
       const sistemaResult = await this.sistemaRepo.searchExpediente(
@@ -140,6 +152,15 @@ export class ProcessExcelUseCase {
       }
 
       results.push(validation);
+    }
+
+    // Callback final de progreso si está disponible
+    if (dto.progressCallback) {
+      try {
+        await dto.progressCallback(totalExpedientes, totalExpedientes, 'Completado');
+      } catch (error) {
+        console.error('Error en callback final de progreso:', error);
+      }
     }
 
     // 3. Generar estadísticas
