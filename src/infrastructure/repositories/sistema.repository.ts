@@ -31,15 +31,20 @@ export class SistemaRepositoryImpl implements SistemaRepository {
     }
   }
 
-  async searchExpediente(expediente: string, costoGuardado: number): Promise<{
+  async searchExpediente(
+    expediente: string,
+    _costoGuardado: number
+  ): Promise<{
     encontrado: boolean;
     costoSistema: number;
   }> {
     // Inicializar navegador bajo demanda
     await this.ensureInitialized();
-    
+
     if (!this.portalService || !this.portalService.isReady()) {
-      throw new Error('Portal IKE no configurado. Configure las credenciales IKE_USERNAME y IKE_PASSWORD en .env');
+      throw new Error(
+        'Portal IKE no configurado. Configure las credenciales IKE_USERNAME y IKE_PASSWORD en .env'
+      );
     }
 
     return await this.searchWithRealAutomation(expediente);
@@ -66,7 +71,7 @@ export class SistemaRepositoryImpl implements SistemaRepository {
     const result = await this.portalService!.searchExpediente(expediente);
     return {
       encontrado: result.encontrado,
-      costoSistema: result.costoSistema
+      costoSistema: result.costoSistema,
     };
   }
 

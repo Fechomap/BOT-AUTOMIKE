@@ -8,7 +8,10 @@ export interface ExcelRepository {
 }
 
 export interface SistemaRepository {
-  searchExpediente(expediente: string, costoGuardado: number): Promise<{
+  searchExpediente(
+    expediente: string,
+    costoGuardado: number
+  ): Promise<{
     encontrado: boolean;
     costoSistema: number;
   }>;
@@ -18,7 +21,7 @@ export interface SistemaRepository {
 export interface ProcessExcelDTO {
   filePath: string;
   logicasActivas?: {
-    costoExacto: boolean;      // Siempre activa
+    costoExacto: boolean; // Siempre activa
     margen10Porciento: boolean;
     costoSuperior: boolean;
   };
@@ -49,10 +52,10 @@ export class ProcessExcelUseCase {
     if (dto.tenantId) {
       const { TenantService } = await import('../../infrastructure/services/tenant.service');
       const tenantService = new TenantService();
-      
+
       try {
         const credentials = await tenantService.getCredentialsByTenantId(dto.tenantId);
-        
+
         if (credentials) {
           console.log(`🔐 Configurando credenciales específicas para tenant: ${dto.tenantId}`);
           // Configurar el sistema repository con las credenciales del tenant
@@ -70,7 +73,7 @@ export class ProcessExcelUseCase {
     }
     // 1. Leer Excel
     const expedientes = await this.excelRepo.readFile(dto.filePath);
-    
+
     if (expedientes.length === 0) {
       throw new Error('No se encontraron expedientes válidos');
     }
@@ -79,31 +82,33 @@ export class ProcessExcelUseCase {
     const logicasActivas = dto.logicasActivas || {
       costoExacto: true,
       margen10Porciento: true,
-      costoSuperior: true
+      costoSuperior: true,
     };
 
     // 3. Procesar cada expediente
     const results: ValidationResult[] = [];
-    
+
     for (const expediente of expedientes) {
       console.log(`🔍 Procesando expediente: ${expediente.numero}`);
-      
+
       // Buscar en sistema
       const sistemaResult = await this.sistemaRepo.searchExpediente(
-        expediente.numero, 
+        expediente.numero,
         expediente.costoGuardado
       );
-      
+
       if (!sistemaResult.encontrado) {
-        results.push(new ValidationResult(
-          expediente.numero,
-          expediente.costoGuardado,
-          0,
-          0,
-          'PENDIENTE' as any,
-          'No encontrado en sistema',
-          false
-        ));
+        results.push(
+          new ValidationResult(
+            expediente.numero,
+            expediente.costoGuardado,
+            0,
+            0,
+            'PENDIENTE' as any,
+            'No encontrado en sistema',
+            false
+          )
+        );
         continue;
       }
 
@@ -118,7 +123,7 @@ export class ProcessExcelUseCase {
       // Si debe liberarse, intentar aceptar el costo en el portal
       if (validation.debeLiberarse) {
         console.log(`💰 Expediente ${expediente.numero} cumple lógica, intentando liberar...`);
-        
+
         try {
           const liberado = await this.sistemaRepo.acceptCost();
           if (liberado) {
@@ -141,17 +146,17 @@ export class ProcessExcelUseCase {
     const stats = this.calculateStats(results);
 
     // 4. Generar archivo de resultados
-    const resultData = results.map(r => ({
+    const resultData = results.map((r) => ({
       Expediente: r.expediente,
       'Costo Guardado': r.costoGuardado,
       'Costo Sistema': r.costoSistema,
       'Lógica Usada': r.logicaUsada || 'Ninguna',
       Resultado: r.resultado,
-      Mensaje: r.mensaje
+      Mensaje: r.mensaje,
     }));
 
     const resultFilePath = await this.excelRepo.writeResults(
-      resultData, 
+      resultData,
       `resultados_${Date.now()}.xlsx`
     );
 
@@ -161,7 +166,7 @@ export class ProcessExcelUseCase {
       pendientes: stats.pendientes,
       tasaLiberacion: stats.tasaLiberacion,
       porLogica: stats.porLogica,
-      resultFilePath
+      resultFilePath,
     };
   }
 
@@ -171,16 +176,22 @@ export class ProcessExcelUseCase {
       aceptados: 0,
       pendientes: 0,
       porLogica: { logica1: 0, logica2: 0, logica3: 0 },
-      tasaLiberacion: 0
+      tasaLiberacion: 0,
     };
 
-    results.forEach(result => {
+    results.forEach((result) => {
       if (result.debeLiberarse) {
         stats.aceptados++;
         switch (result.logicaUsada) {
-          case 1: stats.porLogica.logica1++; break;
-          case 2: stats.porLogica.logica2++; break;
-          case 3: stats.porLogica.logica3++; break;
+          case 1:
+            stats.porLogica.logica1++;
+            break;
+          case 2:
+            stats.porLogica.logica2++;
+            break;
+          case 3:
+            stats.porLogica.logica3++;
+            break;
         }
       } else {
         stats.pendientes++;

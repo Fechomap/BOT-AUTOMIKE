@@ -11,7 +11,14 @@ export interface UserSession {
     margen10Porciento: boolean;
     costoSuperior: boolean;
   };
-  stage: 'idle' | 'registering' | 'configuring_logics' | 'ready_to_process' | 'registration_company' | 'registration_username' | 'registration_password';
+  stage:
+    | 'idle'
+    | 'registering'
+    | 'configuring_logics'
+    | 'ready_to_process'
+    | 'registration_company'
+    | 'registration_username'
+    | 'registration_password';
   // Datos temporales del registro
   registrationData?: {
     companyName?: string;
@@ -33,10 +40,10 @@ export class SessionService {
   async getOrCreateTemporarySession(telegramId: bigint): Promise<UserSession> {
     // Crear una sesión temporal con ID basado en telegramId
     const tempTenantId = `temp_${telegramId.toString()}`;
-    
+
     let session = await this.prisma.session.findFirst({
       where: { tenantId: tempTenantId },
-      orderBy: { updatedAt: 'desc' }
+      orderBy: { updatedAt: 'desc' },
     });
 
     if (!session) {
@@ -47,10 +54,10 @@ export class SessionService {
           logicasActivas: {
             costoExacto: true,
             margen10Porciento: false,
-            costoSuperior: false
+            costoSuperior: false,
           },
-          stage: 'idle'
-        }
+          stage: 'idle',
+        },
       });
     }
 
@@ -62,7 +69,7 @@ export class SessionService {
       expedientesCount: session.expedientesCount || undefined,
       logicasActivas: session.logicasActivas as any,
       stage: session.stage as any,
-      registrationData: {}
+      registrationData: {},
     };
   }
 
@@ -72,7 +79,7 @@ export class SessionService {
   async getOrCreateSession(tenantId: string): Promise<UserSession> {
     let session = await this.prisma.session.findFirst({
       where: { tenantId },
-      orderBy: { updatedAt: 'desc' }
+      orderBy: { updatedAt: 'desc' },
     });
 
     if (!session) {
@@ -83,10 +90,10 @@ export class SessionService {
           logicasActivas: {
             costoExacto: true,
             margen10Porciento: false,
-            costoSuperior: false
+            costoSuperior: false,
           },
-          stage: 'idle'
-        }
+          stage: 'idle',
+        },
       });
     }
 
@@ -97,7 +104,7 @@ export class SessionService {
       fileName: session.fileName || undefined,
       expedientesCount: session.expedientesCount || undefined,
       logicasActivas: session.logicasActivas as any,
-      stage: session.stage as any
+      stage: session.stage as any,
     };
   }
 
@@ -105,27 +112,28 @@ export class SessionService {
    * Actualizar sesión temporal por Telegram ID
    */
   async updateTemporarySession(
-    telegramId: bigint, 
+    telegramId: bigint,
     updates: Partial<Omit<UserSession, 'id' | 'tenantId'>>
   ): Promise<UserSession> {
     const tempTenantId = `temp_${telegramId.toString()}`;
-    
+
     const updateData: any = {};
     if (updates.filePath !== undefined) updateData.filePath = updates.filePath;
     if (updates.fileName !== undefined) updateData.fileName = updates.fileName;
-    if (updates.expedientesCount !== undefined) updateData.expedientesCount = updates.expedientesCount;
+    if (updates.expedientesCount !== undefined)
+      updateData.expedientesCount = updates.expedientesCount;
     if (updates.logicasActivas) updateData.logicasActivas = updates.logicasActivas;
     if (updates.stage) updateData.stage = updates.stage;
 
-    const session = await this.prisma.session.updateMany({
+    await this.prisma.session.updateMany({
       where: { tenantId: tempTenantId },
-      data: updateData
+      data: updateData,
     });
 
     // Obtener la sesión actualizada
     const updatedSession = await this.prisma.session.findFirst({
       where: { tenantId: tempTenantId },
-      orderBy: { updatedAt: 'desc' }
+      orderBy: { updatedAt: 'desc' },
     });
 
     if (!updatedSession) throw new Error('Sesión no encontrada');
@@ -138,7 +146,7 @@ export class SessionService {
       expedientesCount: updatedSession.expedientesCount || undefined,
       logicasActivas: updatedSession.logicasActivas as any,
       stage: updatedSession.stage as any,
-      registrationData: updates.registrationData || {}
+      registrationData: updates.registrationData || {},
     };
   }
 
@@ -153,13 +161,14 @@ export class SessionService {
 
     if (updates.filePath !== undefined) updateData.filePath = updates.filePath;
     if (updates.fileName !== undefined) updateData.fileName = updates.fileName;
-    if (updates.expedientesCount !== undefined) updateData.expedientesCount = updates.expedientesCount;
+    if (updates.expedientesCount !== undefined)
+      updateData.expedientesCount = updates.expedientesCount;
     if (updates.logicasActivas) updateData.logicasActivas = updates.logicasActivas;
     if (updates.stage) updateData.stage = updates.stage;
 
     const session = await this.prisma.session.update({
       where: { id: sessionId },
-      data: updateData
+      data: updateData,
     });
 
     return {
@@ -169,7 +178,7 @@ export class SessionService {
       fileName: session.fileName || undefined,
       expedientesCount: session.expedientesCount || undefined,
       logicasActivas: session.logicasActivas as any,
-      stage: session.stage as any
+      stage: session.stage as any,
     };
   }
 
@@ -178,7 +187,7 @@ export class SessionService {
    */
   async cleanupSession(sessionId: string): Promise<UserSession> {
     console.log(`🧹 Limpiando sesión: ${sessionId}`);
-    
+
     return await this.updateSession(sessionId, {
       filePath: undefined,
       fileName: undefined,
@@ -187,8 +196,8 @@ export class SessionService {
       logicasActivas: {
         costoExacto: true,
         margen10Porciento: false,
-        costoSuperior: false
-      }
+        costoSuperior: false,
+      },
     });
   }
 
@@ -202,10 +211,10 @@ export class SessionService {
     const result = await this.prisma.session.deleteMany({
       where: {
         updatedAt: {
-          lt: oneDayAgo
+          lt: oneDayAgo,
         },
-        stage: 'idle'
-      }
+        stage: 'idle',
+      },
     });
 
     if (result.count > 0) {
@@ -220,7 +229,7 @@ export class SessionService {
    */
   async getSession(sessionId: string): Promise<UserSession | null> {
     const session = await this.prisma.session.findUnique({
-      where: { id: sessionId }
+      where: { id: sessionId },
     });
 
     if (!session) return null;
@@ -232,7 +241,7 @@ export class SessionService {
       fileName: session.fileName || undefined,
       expedientesCount: session.expedientesCount || undefined,
       logicasActivas: session.logicasActivas as any,
-      stage: session.stage as any
+      stage: session.stage as any,
     };
   }
 

@@ -31,7 +31,7 @@ export class Tenant {
       ikeUsername,
       ikePassword,
       headless,
-      isActive: true
+      isActive: true,
     };
   }
 

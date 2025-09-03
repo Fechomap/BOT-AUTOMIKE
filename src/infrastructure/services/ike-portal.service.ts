@@ -27,7 +27,7 @@ export class IkePortalService {
     this.config = {
       headless: true,
       timeout: 30000,
-      ...config
+      ...config,
     };
   }
 
@@ -36,10 +36,10 @@ export class IkePortalService {
    */
   private async waitForMainFrame(): Promise<void> {
     if (!this.page) return;
-    
+
     let attempts = 0;
     const maxAttempts = 5;
-    
+
     while (attempts < maxAttempts) {
       try {
         const mainFrame = this.page.mainFrame();
@@ -49,11 +49,11 @@ export class IkePortalService {
         }
       } catch (error) {
         console.log(`⏳ Esperando frame principal (intento ${attempts + 1}/${maxAttempts})`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
         attempts++;
       }
     }
-    
+
     throw new Error('Frame principal no disponible después de múltiples intentos');
   }
 
@@ -62,15 +62,15 @@ export class IkePortalService {
    */
   private async waitForStableNavigation(): Promise<void> {
     if (!this.page) return;
-    
+
     let attempts = 0;
     const maxAttempts = 15; // Aumentar intentos
-    
+
     while (attempts < maxAttempts) {
       try {
         // Esperar un momento antes de verificar
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+
         // Verificar que el frame principal esté disponible
         try {
           const mainFrame = this.page.mainFrame();
@@ -82,23 +82,26 @@ export class IkePortalService {
           attempts++;
           continue;
         }
-        
+
         // Intentar obtener el título - si falla, la página aún se está cargando
         await this.page.title();
-        
+
         // Verificar que podemos acceder a elementos del DOM
         await this.page.evaluate(() => document.readyState);
-        
+
         // Si llegamos aquí, la página está estable
         console.log('📋 Página y frame principal estables');
         return;
-        
       } catch (error) {
         attempts++;
-        console.log(`⏳ Esperando estabilización (intento ${attempts}/${maxAttempts}): ${(error as Error).message}`);
-        
+        console.log(
+          `⏳ Esperando estabilización (intento ${attempts}/${maxAttempts}): ${(error as Error).message}`
+        );
+
         if (attempts >= maxAttempts) {
-          console.log('⚠️ Página puede no estar completamente estable, continuando con precaución...');
+          console.log(
+            '⚠️ Página puede no estar completamente estable, continuando con precaución...'
+          );
           return;
         }
       }
@@ -114,18 +117,18 @@ export class IkePortalService {
       // macOS - Chrome primero
       '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
       '/Applications/Chromium.app/Contents/MacOS/Chromium',
-      
-      // Windows - Chrome primero  
+
+      // Windows - Chrome primero
       'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
       'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
       'C:\\Program Files\\Chromium\\Application\\chromium.exe',
       'C:\\Program Files (x86)\\Chromium\\Application\\chromium.exe',
-      
+
       // Linux (Docker/Railway) - Chrome primero si está disponible
       '/usr/bin/google-chrome',
       '/usr/bin/google-chrome-stable',
       '/usr/bin/chromium',
-      '/usr/bin/chromium-browser'
+      '/usr/bin/chromium-browser',
     ];
 
     for (const path of possiblePaths) {
@@ -143,7 +146,7 @@ export class IkePortalService {
    */
   async initialize(): Promise<void> {
     console.log('🚀 Inicializando navegador...');
-    
+
     // Configuración base
     const launchOptions: any = {
       headless: this.config.headless, // Usar configuración del constructor
@@ -160,11 +163,11 @@ export class IkePortalService {
         '--disable-backgrounding-occluded-windows',
         '--disable-renderer-backgrounding',
         '--disable-crash-reporter',
-        '--disable-ipc-flooding-protection'
+        '--disable-ipc-flooding-protection',
         // Removidos --single-process y --no-zygote que causan problemas con frames
       ],
       defaultViewport: { width: 1200, height: 800 },
-      timeout: 60000
+      timeout: 60000,
     };
 
     // Auto-detectar ejecutable de Chrome/Chromium por plataforma
@@ -183,7 +186,7 @@ export class IkePortalService {
     this.browser = await puppeteer.launch(launchOptions);
 
     this.page = await this.browser.newPage();
-    
+
     // Configurar viewport y user agent
     await this.page.setViewport({ width: 1366, height: 768 });
     await this.page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
@@ -203,7 +206,7 @@ export class IkePortalService {
       // Navegar a la página de login con manejo robusto de frames
       await this.page.goto('https://portalproveedores.ikeasistencia.com', {
         waitUntil: 'networkidle2', // Esperar a que la red esté inactiva
-        timeout: this.config.timeout
+        timeout: this.config.timeout,
       });
 
       console.log('📄 Página de login cargada, esperando estabilización...');
@@ -214,12 +217,14 @@ export class IkePortalService {
       // Verificar que el frame principal esté disponible antes de continuar
       await this.waitForMainFrame();
 
-      console.log('✅ Página estabilizada y frame principal disponible, buscando campos de login...');
-      
+      console.log(
+        '✅ Página estabilizada y frame principal disponible, buscando campos de login...'
+      );
+
       // Buscar cualquier input de texto primero
       const inputs = await this.page.$$('input');
       console.log(`📋 Encontrados ${inputs.length} campos de input`);
-      
+
       if (inputs.length === 0) {
         throw new Error('No se encontraron campos de input en la página');
       }
@@ -229,20 +234,20 @@ export class IkePortalService {
         'input[formcontrolname="username"]', // Selector principal de la app original
         'input[type="text"]',
         'input[name*="user"]',
-        'input[id*="user"]'
+        'input[id*="user"]',
       ];
-      
+
       const passwordSelectors = [
         'input[formcontrolname="password"]', // Selector principal de la app original
         'input[type="password"]',
         'input[name*="pass"]',
-        'input[id*="pass"]'
+        'input[id*="pass"]',
       ];
-      
+
       // Buscar campos con el método original más simple
       let usernameSelector = '';
       let passwordSelector = '';
-      
+
       // Buscar campo de usuario
       for (const selector of usernameSelectors) {
         try {
@@ -252,9 +257,11 @@ export class IkePortalService {
             usernameSelector = selector;
             break;
           }
-        } catch {}
+        } catch {
+          // Selector no encontrado, continúar con el siguiente
+        }
       }
-      
+
       // Buscar campo de contraseña
       for (const selector of passwordSelectors) {
         try {
@@ -264,13 +271,17 @@ export class IkePortalService {
             passwordSelector = selector;
             break;
           }
-        } catch {}
+        } catch {
+          // Selector no encontrado, continúar con el siguiente
+        }
       }
-      
+
       if (!usernameSelector || !passwordSelector) {
         // Hacer screenshot para debug
         await this.page.screenshot({ path: 'temp/login-page.png' });
-        throw new Error(`No se encontraron los campos de login. Usuario: ${!!usernameSelector}, Contraseña: ${!!passwordSelector}`);
+        throw new Error(
+          `No se encontraron los campos de login. Usuario: ${!!usernameSelector}, Contraseña: ${!!passwordSelector}`
+        );
       }
 
       // Introducir credenciales con delay como la app original
@@ -285,7 +296,7 @@ export class IkePortalService {
       // Esperar navegación igual que la app original
       await this.page.waitForNavigation({
         waitUntil: 'networkidle2',
-        timeout: this.config.timeout
+        timeout: this.config.timeout,
       });
 
       // Verificar login exitoso como la app original
@@ -299,21 +310,20 @@ export class IkePortalService {
 
       console.log('✅ Login exitoso');
       this.isLoggedIn = true;
-
     } catch (error) {
       console.error('❌ Error en login:', error);
-      
+
       // Verificar si el navegador/página aún están disponibles
       if (!this.browser || this.browser.process()?.killed) {
         console.error('🔥 Navegador fue cerrado inesperadamente');
         throw new Error('Navegador cerrado durante login');
       }
-      
+
       if (!this.page || this.page.isClosed()) {
         console.error('🔥 Página fue cerrada inesperadamente');
         throw new Error('Página cerrada durante login');
       }
-      
+
       throw new Error(`Error en login: ${(error as Error).message}`);
     }
   }
@@ -332,11 +342,9 @@ export class IkePortalService {
       // Buscar y hacer clic en el botón de aceptar (basado en la app principal)
       const buttonClicked = await this.page.evaluate(() => {
         const buttons = Array.from(document.querySelectorAll('button'));
-        const acceptButton = buttons.find(button => {
+        const acceptButton = buttons.find((button) => {
           const td = button.closest('td');
-          return button.querySelector('.mat-mdc-button-touch-target') &&
-                 td &&
-                 td.cellIndex === 0;
+          return button.querySelector('.mat-mdc-button-touch-target') && td && td.cellIndex === 0;
         });
         if (acceptButton) {
           (acceptButton as HTMLButtonElement).click();
@@ -356,7 +364,7 @@ export class IkePortalService {
       // Confirmar en el modal (basado en la app principal)
       const confirmed = await this.page.evaluate(() => {
         const modalButtons = Array.from(document.querySelectorAll('.cdk-overlay-container button'));
-        const confirmButton = modalButtons.find(button =>
+        const confirmButton = modalButtons.find((button) =>
           button.textContent?.trim().toLowerCase().includes('aceptar')
         );
         if (confirmButton) {
@@ -374,7 +382,6 @@ export class IkePortalService {
         console.log('❌ No se pudo confirmar la aceptación en el modal');
         return false;
       }
-      
     } catch (error) {
       console.error('❌ Error durante la aceptación:', error);
       return false;
@@ -395,10 +402,13 @@ export class IkePortalService {
       // Solo navegar si no estamos ya en la página correcta (optimización de velocidad)
       if (!this.page.url().includes('portalproveedores.ikeasistencia.com')) {
         console.log('📍 Navegando a página de búsqueda...');
-        await this.page.goto('https://portalproveedores.ikeasistencia.com/admin/services/pendientes', {
-          waitUntil: 'networkidle2',
-          timeout: this.config.timeout
-        });
+        await this.page.goto(
+          'https://portalproveedores.ikeasistencia.com/admin/services/pendientes',
+          {
+            waitUntil: 'networkidle2',
+            timeout: this.config.timeout,
+          }
+        );
         await this.page.waitForTimeout(1500);
       } else {
         console.log('📍 Ya en página de búsqueda, saltando navegación');
@@ -409,7 +419,7 @@ export class IkePortalService {
         'input[placeholder="No. Expediente:*"]',
         'input[formcontrolname="expediente"]',
         'input.mat-mdc-input-element',
-        'input[type="text"]'
+        'input[type="text"]',
       ];
 
       let inputSelector = '';
@@ -433,7 +443,7 @@ export class IkePortalService {
       // Limpiar y escribir número de expediente como la app original
       await this.page.click(inputSelector, { clickCount: 3 });
       await this.page.waitForTimeout(300);
-      await this.page.evaluate((sel) => { 
+      await this.page.evaluate((sel) => {
         const el = document.querySelector(sel) as HTMLInputElement;
         if (el) el.value = '';
       }, inputSelector);
@@ -446,7 +456,7 @@ export class IkePortalService {
 
       // Buscar y hacer click en botón como la app original
       const searchButton = await this.page.$$eval('button', (buttons) => {
-        return buttons.find(btn => btn.textContent?.includes('Buscar'));
+        return buttons.find((btn) => btn.textContent?.includes('Buscar'));
       });
 
       if (searchButton) {
@@ -471,7 +481,7 @@ export class IkePortalService {
         'text="No se encontraron resultados"',
         'text="Expediente no encontrado"',
         '.no-results',
-        '.empty-results'
+        '.empty-results',
       ];
 
       let encontrado = true;
@@ -490,26 +500,27 @@ export class IkePortalService {
         return {
           encontrado: false,
           costoSistema: 0,
-          error: 'Expediente no encontrado en el sistema'
+          error: 'Expediente no encontrado en el sistema',
         };
       }
 
       // Extraer información del expediente
       const expedienteInfo = await this.extractExpedienteInfo();
-      
-      console.log(`✅ Expediente ${numeroExpediente} encontrado - Costo: $${expedienteInfo.costoSistema}`);
-      
+
+      console.log(
+        `✅ Expediente ${numeroExpediente} encontrado - Costo: $${expedienteInfo.costoSistema}`
+      );
+
       return {
         encontrado: true,
-        ...expedienteInfo
+        ...expedienteInfo,
       };
-
     } catch (error) {
       console.error(`❌ Error buscando expediente ${numeroExpediente}:`, error);
       return {
         encontrado: false,
         costoSistema: 0,
-        error: `Error en búsqueda: ${(error as Error).message}`
+        error: `Error en búsqueda: ${(error as Error).message}`,
       };
     }
   }
@@ -530,20 +541,23 @@ export class IkePortalService {
         if (!row) return 0;
 
         const cells = row.querySelectorAll('td');
-        
+
         // Verificar si hay contenido en la celda del costo (columna 3, index 2)
-        const tieneContenido = cells[2] && 
-                             cells[2].textContent && 
-                             cells[2].textContent.trim() !== '' && 
-                             cells[2].textContent.trim() !== '$0.00' &&
-                             cells[2].textContent.trim() !== '$0';
-        
+        const tieneContenido =
+          cells[2] &&
+          cells[2].textContent &&
+          cells[2].textContent.trim() !== '' &&
+          cells[2].textContent.trim() !== '$0.00' &&
+          cells[2].textContent.trim() !== '$0';
+
         if (!tieneContenido) {
           return 0;
         }
 
         // Extraer costo de la columna 3 (index 2)
-        const costoTexto = cells[2] ? cells[2].textContent?.trim().replace('$', '').replace(',', '') || '0' : '0';
+        const costoTexto = cells[2]
+          ? cells[2].textContent?.trim().replace('$', '').replace(',', '') || '0'
+          : '0';
         return parseFloat(costoTexto) || 0;
       });
 
@@ -564,14 +578,13 @@ export class IkePortalService {
         costoSistema: costoSistema || 0,
         fechaRegistro: fechaRegistro || undefined,
         servicio: 'Portal IKE',
-        subservicio: 'Consulta automatizada'
+        subservicio: 'Consulta automatizada',
       };
-
     } catch (error) {
       console.error('❌ Error extrayendo información:', error);
       return {
         costoSistema: 0,
-        error: `Error extrayendo datos: ${(error as Error).message}`
+        error: `Error extrayendo datos: ${(error as Error).message}`,
       };
     }
   }

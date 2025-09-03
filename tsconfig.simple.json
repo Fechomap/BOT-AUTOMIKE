@@ -21,7 +21,7 @@
   "include": [
     "src/index-simple.ts",
     "src/utils/**/*",
-    "src/types/**/*", 
+    "src/types/**/*",
     "src/database/prisma/client-simple.ts"
   ],
   "exclude": [

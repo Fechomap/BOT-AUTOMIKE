@@ -16,17 +16,17 @@ if (!BOT_TOKEN) {
 // Dependency Injection (Simple Factory)
 async function createBotController(): Promise<BotController> {
   const bot = new Telegraf(BOT_TOKEN!);
-  
+
   // Repositories (Infrastructure)
   const excelRepo = new ExcelRepositoryImpl();
   const sistemaRepo = new SistemaRepositoryImpl();
-  
+
   // Las credenciales IKE ahora se configuran por tenant
   console.log('🔐 Sistema multitenant iniciado - credenciales se configuran por empresa');
-  
+
   // Use Cases (Application)
   const processExcelUseCase = new ProcessExcelUseCase(excelRepo, sistemaRepo);
-  
+
   // Controller (Presentation)
   return new BotController(bot, processExcelUseCase);
 }

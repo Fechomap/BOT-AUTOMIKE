@@ -34,8 +34,8 @@ export class TenantService {
         companyName: dto.companyName,
         ikeUsername: dto.ikeUsername,
         ikePassword: encryptedPassword,
-        headless: dto.headless ?? true
-      }
+        headless: dto.headless ?? true,
+      },
     });
 
     return new Tenant(
@@ -56,7 +56,7 @@ export class TenantService {
    */
   async getTenantByTelegramId(telegramId: bigint): Promise<Tenant | null> {
     const tenantData = await this.prisma.tenant.findUnique({
-      where: { telegramId }
+      where: { telegramId },
     });
 
     if (!tenantData) return null;
@@ -83,13 +83,13 @@ export class TenantService {
     headless: boolean;
   } | null> {
     const tenant = await this.getTenantByTelegramId(telegramId);
-    
+
     if (!tenant) return null;
 
     return {
       username: tenant.ikeUsername,
       password: this.decryptPassword(tenant.ikePassword),
-      headless: tenant.headless
+      headless: tenant.headless,
     };
   }
 
@@ -102,15 +102,15 @@ export class TenantService {
     headless: boolean;
   } | null> {
     const tenantData = await this.prisma.tenant.findUnique({
-      where: { id: tenantId }
+      where: { id: tenantId },
     });
-    
+
     if (!tenantData) return null;
 
     return {
       username: tenantData.ikeUsername,
       password: this.decryptPassword(tenantData.ikePassword),
-      headless: tenantData.headless
+      headless: tenantData.headless,
     };
   }
 
@@ -120,9 +120,9 @@ export class TenantService {
   async tenantExists(telegramId: bigint): Promise<boolean> {
     const tenant = await this.prisma.tenant.findUnique({
       where: { telegramId },
-      select: { id: true }
+      select: { id: true },
     });
-    
+
     return tenant !== null;
   }
 
@@ -130,7 +130,7 @@ export class TenantService {
    * Actualizar credenciales de un tenant
    */
   async updateCredentials(
-    telegramId: bigint, 
+    telegramId: bigint,
     updates: {
       companyName?: string;
       ikeUsername?: string;
@@ -147,7 +147,7 @@ export class TenantService {
 
     const tenantData = await this.prisma.tenant.update({
       where: { telegramId },
-      data: updateData
+      data: updateData,
     });
 
     return new Tenant(
@@ -188,11 +188,13 @@ export class TenantService {
         pendientes: data.pendientes,
         tasaLiberacion: data.tasaLiberacion,
         logicasUsadas: data.logicasUsadas,
-        fileName: data.fileName
-      }
+        fileName: data.fileName,
+      },
     });
 
-    console.log(`📊 Historial guardado para ${tenant.companyName}: ${data.aceptados}/${data.total} liberados`);
+    console.log(
+      `📊 Historial guardado para ${tenant.companyName}: ${data.aceptados}/${data.total} liberados`
+    );
   }
 
   /**

@@ -1,12 +1,12 @@
 export enum LogicaValidacion {
   COSTO_EXACTO = 1,
   MARGEN_10_PORCIENTO = 2,
-  COSTO_SUPERIOR = 3
+  COSTO_SUPERIOR = 3,
 }
 
 export enum ResultadoValidacion {
   ACEPTADO = 'ACEPTADO',
-  PENDIENTE = 'PENDIENTE'
+  PENDIENTE = 'PENDIENTE',
 }
 
 export class ValidationResult {

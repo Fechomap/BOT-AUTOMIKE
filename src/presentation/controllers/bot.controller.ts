@@ -30,44 +30,47 @@ export class BotController {
   private setupHandlers() {
     // Comando start
     this.bot.start(this.handleStart.bind(this));
-    
+
     // Comando registrar
     this.bot.command('registrar', this.handleRegisterCommand.bind(this));
-    
+
     // Procesar documentos Excel
     this.bot.on('document', this.handleDocument.bind(this));
-    
+
     // Manejo de botones inline (callbacks)
     this.bot.on('callback_query', this.handleCallbackQuery.bind(this));
-    
+
     // Manejo de mensajes de texto (para flujo interactivo)
     this.bot.on('text', this.handleTextMessage.bind(this));
-    
+
     // Comandos adicionales
     this.bot.command('credenciales', this.handleCredentialsCommand.bind(this));
     this.bot.command('estado', this.handleStatusCommand.bind(this));
     this.bot.help(this.handleHelp.bind(this));
-    
+
     // Error handler
     this.bot.catch(this.handleError.bind(this));
   }
 
   private setupCleanupTasks() {
     // Limpiar sesiones antiguas cada hora
-    setInterval(async () => {
-      try {
-        await this.sessionService.cleanupOldSessions();
-      } catch (error) {
-        console.error('Error limpiando sesiones:', error);
-      }
-    }, 60 * 60 * 1000); // 1 hora
+    setInterval(
+      async () => {
+        try {
+          await this.sessionService.cleanupOldSessions();
+        } catch (error) {
+          console.error('Error limpiando sesiones:', error);
+        }
+      },
+      60 * 60 * 1000
+    ); // 1 hora
   }
 
   private async handleStart(ctx: Context) {
     if (!ctx.from) return;
-    
+
     const tenantExists = await this.tenantService.tenantExists(BigInt(ctx.from.id));
-    
+
     if (!tenantExists) {
       await this.showRegistrationFlow(ctx);
     } else {
@@ -79,23 +82,25 @@ export class BotController {
   private async showRegistrationFlow(ctx: Context) {
     await ctx.reply(
       '🏢 **¡Bienvenido al Bot de Expedientes IKE Multitenant!**\n\n' +
-      '📝 **Para comenzar, necesito registrar tu empresa.**\n\n' +
-      'Usa el comando `/registrar` para iniciar el proceso paso a paso.\n\n' +
-      '⚠️ **Importante:**\n' +
-      '• Usarás tus credenciales del Portal IKE\n' +
-      '• Las contraseñas se almacenan encriptadas\n' +
-      '• Solo tu empresa tendrá acceso a estos datos',
+        '📝 **Para comenzar, necesito registrar tu empresa.**\n\n' +
+        'Usa el comando `/registrar` para iniciar el proceso paso a paso.\n\n' +
+        '⚠️ **Importante:**\n' +
+        '• Usarás tus credenciales del Portal IKE\n' +
+        '• Las contraseñas se almacenan encriptadas\n' +
+        '• Solo tu empresa tendrá acceso a estos datos',
       { parse_mode: 'Markdown' }
     );
   }
 
   private async handleRegisterCommand(ctx: Context) {
     if (!ctx.from) return;
-    
+
     // Verificar si ya existe el tenant
     const exists = await this.tenantService.tenantExists(BigInt(ctx.from.id));
     if (exists) {
-      await ctx.reply('❌ Ya tienes una empresa registrada. Usa `/credenciales` para ver o actualizar tus datos.');
+      await ctx.reply(
+        '❌ Ya tienes una empresa registrada. Usa `/credenciales` para ver o actualizar tus datos.'
+      );
       return;
     }
 
@@ -103,13 +108,13 @@ export class BotController {
     const userId = ctx.from.id.toString();
     this.registrationStates.set(userId, {
       stage: 'company',
-      data: {}
+      data: {},
     });
 
     await ctx.reply(
       '🏢 **Registro de Nueva Empresa**\n\n' +
-      '**Paso 1 de 3:** ¿Cuál es el nombre de tu empresa?\n\n' +
-      'Ejemplo: `Constructora ABC S.A.`',
+        '**Paso 1 de 3:** ¿Cuál es el nombre de tu empresa?\n\n' +
+        'Ejemplo: `Constructora ABC S.A.`',
       { parse_mode: 'Markdown' }
     );
   }
@@ -152,14 +157,14 @@ export class BotController {
   private async showMainMenu(ctx: Context, tenant: any) {
     await ctx.reply(
       `🤖 **Bot de Expedientes IKE v3.0 Multitenant**\n\n` +
-      `🏢 **Empresa:** ${tenant.companyName}\n` +
-      `👤 **Usuario:** ${tenant.ikeUsername}\n\n` +
-      '📎 **¿Listo para procesar expedientes?**\n' +
-      'Envía tu archivo Excel y yo me encargo del resto.\n\n' +
-      '🔧 **Comandos disponibles:**\n' +
-      '• `/credenciales` - Ver/actualizar datos\n' +
-      '• `/estado` - Estado de la cuenta\n' +
-      '• `/help` - Ayuda completa',
+        `🏢 **Empresa:** ${tenant.companyName}\n` +
+        `👤 **Usuario:** ${tenant.ikeUsername}\n\n` +
+        '📎 **¿Listo para procesar expedientes?**\n' +
+        'Envía tu archivo Excel y yo me encargo del resto.\n\n' +
+        '🔧 **Comandos disponibles:**\n' +
+        '• `/credenciales` - Ver/actualizar datos\n' +
+        '• `/estado` - Estado de la cuenta\n' +
+        '• `/help` - Ayuda completa',
       { parse_mode: 'Markdown' }
     );
   }
@@ -192,16 +197,18 @@ export class BotController {
       const fileLink = await ctx.telegram.getFileLink(document.file_id);
       const response = await fetch(fileLink.href);
       const buffer = await response.arrayBuffer();
-      
+
       if (!fs.existsSync('temp')) {
         fs.mkdirSync('temp');
       }
-      
+
       const tempPath = `temp/${tenant.id}_${fileName}`;
       fs.writeFileSync(tempPath, Buffer.from(buffer));
 
       // Leer solo para obtener la cantidad de expedientes
-      const { ExcelRepositoryImpl } = await import('../../infrastructure/repositories/excel.repository');
+      const { ExcelRepositoryImpl } = await import(
+        '../../infrastructure/repositories/excel.repository'
+      );
       const excelRepo = new ExcelRepositoryImpl();
       const expedientes = await excelRepo.readFile(tempPath);
 
@@ -211,7 +218,7 @@ export class BotController {
         filePath: tempPath,
         fileName: fileName,
         expedientesCount: expedientes.length,
-        stage: 'configuring_logics'
+        stage: 'configuring_logics',
       });
 
       await ctx.telegram.editMessageText(
@@ -219,15 +226,14 @@ export class BotController {
         processingMsg.message_id,
         undefined,
         `📋 **Archivo analizado exitosamente**\n\n` +
-        `🏢 **Empresa:** ${tenant.companyName}\n` +
-        `📁 **Archivo:** ${fileName}\n` +
-        `📊 **Expedientes:** **${expedientes.length}**\n\n` +
-        `Ahora configura las lógicas de validación:`
+          `🏢 **Empresa:** ${tenant.companyName}\n` +
+          `📁 **Archivo:** ${fileName}\n` +
+          `📊 **Expedientes:** **${expedientes.length}**\n\n` +
+          `Ahora configura las lógicas de validación:`
       );
 
       // Mostrar opciones de configuración
       await this.showLogicConfiguration(ctx, session);
-
     } catch (error) {
       console.error('❌ Error analizando archivo:', error);
       await ctx.reply(`❌ Error analizando el archivo: ${(error as Error).message}`);
@@ -239,34 +245,38 @@ export class BotController {
       inline_keyboard: [
         [
           {
-            text: session.logicasActivas.margen10Porciento ? '✅ Margen ±10%' : '➕ Activar Margen ±10%',
-            callback_data: `toggle_margen10_${session.id}`
-          }
+            text: session.logicasActivas.margen10Porciento
+              ? '✅ Margen ±10%'
+              : '➕ Activar Margen ±10%',
+            callback_data: `toggle_margen10_${session.id}`,
+          },
         ],
         [
           {
-            text: session.logicasActivas.costoSuperior ? '✅ Costo Superior' : '➕ Activar Costo Superior',
-            callback_data: `toggle_superior_${session.id}`
-          }
+            text: session.logicasActivas.costoSuperior
+              ? '✅ Costo Superior'
+              : '➕ Activar Costo Superior',
+            callback_data: `toggle_superior_${session.id}`,
+          },
         ],
         [
           {
             text: '📊 Ver Configuración',
-            callback_data: `show_preview_${session.id}`
-          }
-        ]
-      ]
+            callback_data: `show_preview_${session.id}`,
+          },
+        ],
+      ],
     };
 
     await ctx.reply(
       `🔧 **CONFIGURACIÓN DE LÓGICAS**\n\n` +
-      `✅ **Lógica 1: Costo Exacto** (siempre activa)\n` +
-      `${session.logicasActivas.margen10Porciento ? '✅' : '❌'} **Lógica 2: Margen ±10%**\n` +
-      `${session.logicasActivas.costoSuperior ? '✅' : '❌'} **Lógica 3: Costo Superior**\n\n` +
-      `Selecciona las lógicas adicionales:`,
+        `✅ **Lógica 1: Costo Exacto** (siempre activa)\n` +
+        `${session.logicasActivas.margen10Porciento ? '✅' : '❌'} **Lógica 2: Margen ±10%**\n` +
+        `${session.logicasActivas.costoSuperior ? '✅' : '❌'} **Lógica 3: Costo Superior**\n\n` +
+        `Selecciona las lógicas adicionales:`,
       {
         parse_mode: 'Markdown',
-        reply_markup: keyboard
+        reply_markup: keyboard,
       }
     );
   }
@@ -309,7 +319,7 @@ export class BotController {
 
   private async handleToggleLogic(ctx: Context, session: UserSession, logic: string) {
     const newLogicas = { ...session.logicasActivas };
-    
+
     if (logic === 'margen10') {
       newLogicas.margen10Porciento = !newLogicas.margen10Porciento;
     } else if (logic === 'superior') {
@@ -317,7 +327,7 @@ export class BotController {
     }
 
     const updatedSession = await this.sessionService.updateSession(session.id, {
-      logicasActivas: newLogicas
+      logicasActivas: newLogicas,
     });
 
     await this.updateLogicConfiguration(ctx, updatedSession);
@@ -328,23 +338,27 @@ export class BotController {
       inline_keyboard: [
         [
           {
-            text: session.logicasActivas.margen10Porciento ? '✅ Margen ±10%' : '➕ Activar Margen ±10%',
-            callback_data: `toggle_margen10_${session.id}`
-          }
+            text: session.logicasActivas.margen10Porciento
+              ? '✅ Margen ±10%'
+              : '➕ Activar Margen ±10%',
+            callback_data: `toggle_margen10_${session.id}`,
+          },
         ],
         [
           {
-            text: session.logicasActivas.costoSuperior ? '✅ Costo Superior' : '➕ Activar Costo Superior',
-            callback_data: `toggle_superior_${session.id}`
-          }
+            text: session.logicasActivas.costoSuperior
+              ? '✅ Costo Superior'
+              : '➕ Activar Costo Superior',
+            callback_data: `toggle_superior_${session.id}`,
+          },
         ],
         [
           {
             text: '📊 Ver Configuración',
-            callback_data: `show_preview_${session.id}`
-          }
-        ]
-      ]
+            callback_data: `show_preview_${session.id}`,
+          },
+        ],
+      ],
     };
 
     if ('message' in ctx.callbackQuery! && ctx.callbackQuery.message) {
@@ -353,13 +367,13 @@ export class BotController {
         ctx.callbackQuery.message.message_id,
         undefined,
         `🔧 **CONFIGURACIÓN DE LÓGICAS**\n\n` +
-        `✅ **Lógica 1: Costo Exacto** (siempre activa)\n` +
-        `${session.logicasActivas.margen10Porciento ? '✅' : '❌'} **Lógica 2: Margen ±10%**\n` +
-        `${session.logicasActivas.costoSuperior ? '✅' : '❌'} **Lógica 3: Costo Superior**\n\n` +
-        `Selecciona las lógicas adicionales:`,
+          `✅ **Lógica 1: Costo Exacto** (siempre activa)\n` +
+          `${session.logicasActivas.margen10Porciento ? '✅' : '❌'} **Lógica 2: Margen ±10%**\n` +
+          `${session.logicasActivas.costoSuperior ? '✅' : '❌'} **Lógica 3: Costo Superior**\n\n` +
+          `Selecciona las lógicas adicionales:`,
         {
           parse_mode: 'Markdown',
-          reply_markup: keyboard
+          reply_markup: keyboard,
         }
       );
     }
@@ -367,25 +381,25 @@ export class BotController {
 
   private async showProcessPreview(ctx: Context, session: UserSession) {
     const activasCount = Object.values(session.logicasActivas).filter(Boolean).length;
-    
+
     const keyboard = {
       inline_keyboard: [
         [
           {
             text: '🚀 INICIAR PROCESO',
-            callback_data: `start_processing_${session.id}`
-          }
+            callback_data: `start_processing_${session.id}`,
+          },
         ],
         [
           {
             text: '⬅️ Volver a Configuración',
-            callback_data: `back_to_config_${session.id}`
-          }
-        ]
-      ]
+            callback_data: `back_to_config_${session.id}`,
+          },
+        ],
+      ],
     };
 
-    const previewMessage = 
+    const previewMessage =
       `📊 **RESUMEN DE CONFIGURACIÓN**\n\n` +
       `📁 **Archivo:** ${session.fileName}\n` +
       `📋 **Expedientes:** ${session.expedientesCount}\n\n` +
@@ -404,7 +418,7 @@ export class BotController {
         previewMessage,
         {
           parse_mode: 'Markdown',
-          reply_markup: keyboard
+          reply_markup: keyboard,
         }
       );
     }
@@ -422,14 +436,14 @@ export class BotController {
     try {
       const processingMsg = await ctx.reply(
         `🌐 **Iniciando proceso para ${tenant.companyName}**\n` +
-        `🚀 Abriendo portal IKE con tus credenciales...`
+          `🚀 Abriendo portal IKE con tus credenciales...`
       );
 
       // Procesar con credenciales específicas del tenant
-      const result = await this.processExcelUseCase.execute({ 
+      const result = await this.processExcelUseCase.execute({
         filePath: session.filePath,
         logicasActivas: session.logicasActivas,
-        tenantId: tenant.id
+        tenantId: tenant.id,
       });
 
       // Registrar en historial
@@ -439,7 +453,7 @@ export class BotController {
         pendientes: result.pendientes,
         tasaLiberacion: result.tasaLiberacion,
         logicasUsadas: session.logicasActivas,
-        fileName: session.fileName
+        fileName: session.fileName,
       });
 
       // Limpiar archivo temporal
@@ -451,7 +465,7 @@ export class BotController {
       await this.sessionService.cleanupSession(session.id);
 
       // Mensaje final
-      const finalMessage = 
+      const finalMessage =
         `✅ **¡Procesamiento completado para ${tenant.companyName}!**\n\n` +
         `📊 **Resultados:**\n` +
         `• Total: ${result.total}\n` +
@@ -477,14 +491,13 @@ export class BotController {
           { source: result.resultFilePath },
           { caption: `📎 Resultados de ${tenant.companyName} - Liberaciones reales` }
         );
-        
+
         fs.unlinkSync(result.resultFilePath);
       }
-
     } catch (error) {
       console.error('❌ Error procesando archivo:', error);
       await ctx.reply(`❌ Error: ${(error as Error).message}`);
-      
+
       // Limpiar en caso de error
       if (session.filePath && fs.existsSync(session.filePath)) {
         fs.unlinkSync(session.filePath);
@@ -495,7 +508,7 @@ export class BotController {
 
   private async handleCredentialsCommand(ctx: Context) {
     if (!ctx.from) return;
-    
+
     const tenant = await this.tenantService.getTenantByTelegramId(BigInt(ctx.from.id));
     if (!tenant) {
       await ctx.reply('❌ Primero debes registrar tu empresa con `/registrar`');
@@ -504,18 +517,18 @@ export class BotController {
 
     await ctx.reply(
       `🏢 **Información de tu empresa:**\n\n` +
-      `**Empresa:** ${tenant.companyName}\n` +
-      `**Usuario Portal IKE:** ${tenant.ikeUsername}\n` +
-      `**Estado:** ${tenant.isActive ? '✅ Activo' : '❌ Inactivo'}\n` +
-      `**Modo navegador:** ${tenant.headless ? 'Sin ventana' : 'Con ventana'}\n\n` +
-      `Para actualizar tus datos, contacta al administrador.`,
+        `**Empresa:** ${tenant.companyName}\n` +
+        `**Usuario Portal IKE:** ${tenant.ikeUsername}\n` +
+        `**Estado:** ${tenant.isActive ? '✅ Activo' : '❌ Inactivo'}\n` +
+        `**Modo navegador:** ${tenant.headless ? 'Sin ventana' : 'Con ventana'}\n\n` +
+        `Para actualizar tus datos, contacta al administrador.`,
       { parse_mode: 'Markdown' }
     );
   }
 
   private async handleStatusCommand(ctx: Context) {
     if (!ctx.from) return;
-    
+
     const tenant = await this.tenantService.getTenantByTelegramId(BigInt(ctx.from.id));
     if (!tenant) {
       await ctx.reply('❌ Primero debes registrar tu empresa con `/registrar`');
@@ -524,11 +537,11 @@ export class BotController {
 
     await ctx.reply(
       `📊 **Estado de ${tenant.companyName}**\n\n` +
-      `🆔 **ID:** ${tenant.id}\n` +
-      `📅 **Registrado:** ${tenant.createdAt.toLocaleDateString()}\n` +
-      `🔄 **Última actividad:** ${tenant.updatedAt.toLocaleDateString()}\n` +
-      `⭐ **Estado:** ${tenant.isActive ? 'Activo' : 'Inactivo'}\n\n` +
-      `🤖 **Bot versión:** 3.0 Multitenant`,
+        `🆔 **ID:** ${tenant.id}\n` +
+        `📅 **Registrado:** ${tenant.createdAt.toLocaleDateString()}\n` +
+        `🔄 **Última actividad:** ${tenant.updatedAt.toLocaleDateString()}\n` +
+        `⭐ **Estado:** ${tenant.isActive ? 'Activo' : 'Inactivo'}\n\n` +
+        `🤖 **Bot versión:** 3.0 Multitenant`,
       { parse_mode: 'Markdown' }
     );
   }
@@ -536,38 +549,38 @@ export class BotController {
   private async handleHelp(ctx: Context) {
     await ctx.reply(
       '🆘 **Bot de Expedientes IKE v3.0 Multitenant**\n\n' +
-      '📋 **Comandos:**\n' +
-      '• `/registrar` - Registrar tu empresa\n' +
-      '• `/credenciales` - Ver datos de tu empresa\n' +
-      '• `/estado` - Estado de tu cuenta\n' +
-      '• `/help` - Esta ayuda\n\n' +
-      '📎 **Uso:**\n' +
-      '1. Registra tu empresa con `/registrar`\n' +
-      '2. Envía un archivo Excel\n' +
-      '3. Configura las lógicas de validación\n' +
-      '4. Inicia el proceso\n\n' +
-      '🎯 **Lógicas disponibles:**\n' +
-      '• **Costo exacto**: Siempre activa\n' +
-      '• **Margen ±10%**: Opcional\n' +
-      '• **Costo superior**: Opcional\n\n' +
-      '🔐 **Multitenant:** Cada empresa usa sus propias credenciales del Portal IKE de forma segura.',
+        '📋 **Comandos:**\n' +
+        '• `/registrar` - Registrar tu empresa\n' +
+        '• `/credenciales` - Ver datos de tu empresa\n' +
+        '• `/estado` - Estado de tu cuenta\n' +
+        '• `/help` - Esta ayuda\n\n' +
+        '📎 **Uso:**\n' +
+        '1. Registra tu empresa con `/registrar`\n' +
+        '2. Envía un archivo Excel\n' +
+        '3. Configura las lógicas de validación\n' +
+        '4. Inicia el proceso\n\n' +
+        '🎯 **Lógicas disponibles:**\n' +
+        '• **Costo exacto**: Siempre activa\n' +
+        '• **Margen ±10%**: Opcional\n' +
+        '• **Costo superior**: Opcional\n\n' +
+        '🔐 **Multitenant:** Cada empresa usa sus propias credenciales del Portal IKE de forma segura.',
       { parse_mode: 'Markdown' }
     );
   }
 
   private async handleTextMessage(ctx: Context) {
     if (!ctx.from || !ctx.message || !('text' in ctx.message)) return;
-    
+
     const text = ctx.message.text;
     const userId = ctx.from.id.toString();
-    
+
     // Verificar si es un comando, si es así, no procesar como texto
     if (text.startsWith('/')) return;
-    
+
     // Obtener estado de registro
     const registrationState = this.registrationStates.get(userId);
     if (!registrationState) return; // No está en proceso de registro
-    
+
     switch (registrationState.stage) {
       case 'company':
         await this.handleRegistrationCompany(ctx, text);
@@ -583,14 +596,16 @@ export class BotController {
 
   private async handleRegistrationCompany(ctx: Context, companyName: string) {
     if (!ctx.from) return;
-    
+
     const userId = ctx.from.id.toString();
     const state = this.registrationStates.get(userId);
     if (!state) return;
-    
+
     // Validar nombre de empresa
     if (companyName.trim().length < 2) {
-      await ctx.reply('❌ El nombre de la empresa debe tener al menos 2 caracteres. Intenta de nuevo:');
+      await ctx.reply(
+        '❌ El nombre de la empresa debe tener al menos 2 caracteres. Intenta de nuevo:'
+      );
       return;
     }
 
@@ -600,24 +615,28 @@ export class BotController {
     this.registrationStates.set(userId, state);
 
     await ctx.reply(
-      '✅ **Empresa registrada:** ' + companyName.trim() + '\n\n' +
-      '👤 **Paso 2 de 3:** ¿Cuál es tu usuario del Portal IKE?\n\n' +
-      'Ejemplo: `usuario@empresa.com`',
+      '✅ **Empresa registrada:** ' +
+        companyName.trim() +
+        '\n\n' +
+        '👤 **Paso 2 de 3:** ¿Cuál es tu usuario del Portal IKE?\n\n' +
+        'Ejemplo: `usuario@empresa.com`',
       { parse_mode: 'Markdown' }
     );
   }
 
   private async handleRegistrationUsername(ctx: Context, username: string) {
     if (!ctx.from) return;
-    
+
     const userId = ctx.from.id.toString();
     const state = this.registrationStates.get(userId);
     if (!state) return;
-    
+
     // Validar email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(username.trim())) {
-      await ctx.reply('❌ Ingresa un email válido. Ejemplo: `usuario@empresa.com`', { parse_mode: 'Markdown' });
+      await ctx.reply('❌ Ingresa un email válido. Ejemplo: `usuario@empresa.com`', {
+        parse_mode: 'Markdown',
+      });
       return;
     }
 
@@ -627,20 +646,22 @@ export class BotController {
     this.registrationStates.set(userId, state);
 
     await ctx.reply(
-      '✅ **Usuario:** ' + username.trim() + '\n\n' +
-      '🔐 **Paso 3 de 3:** ¿Cuál es tu contraseña del Portal IKE?\n\n' +
-      '⚠️ **Nota:** La contraseña se almacenará encriptada y segura.',
+      '✅ **Usuario:** ' +
+        username.trim() +
+        '\n\n' +
+        '🔐 **Paso 3 de 3:** ¿Cuál es tu contraseña del Portal IKE?\n\n' +
+        '⚠️ **Nota:** La contraseña se almacenará encriptada y segura.',
       { parse_mode: 'Markdown' }
     );
   }
 
   private async handleRegistrationPassword(ctx: Context, password: string) {
     if (!ctx.from) return;
-    
+
     const userId = ctx.from.id.toString();
     const state = this.registrationStates.get(userId);
     if (!state) return;
-    
+
     // Validar contraseña
     if (password.trim().length < 3) {
       await ctx.reply('❌ La contraseña debe tener al menos 3 caracteres. Intenta de nuevo:');
@@ -650,7 +671,9 @@ export class BotController {
     try {
       // Verificar que tenemos todos los datos
       if (!state.data.companyName || !state.data.username) {
-        await ctx.reply('❌ Error: datos de registro incompletos. Usa `/registrar` para comenzar de nuevo.');
+        await ctx.reply(
+          '❌ Error: datos de registro incompletos. Usa `/registrar` para comenzar de nuevo.'
+        );
         this.registrationStates.delete(userId);
         return;
       }
@@ -661,7 +684,7 @@ export class BotController {
         companyName: state.data.companyName,
         ikeUsername: state.data.username,
         ikePassword: password.trim(),
-        headless: true
+        headless: true,
       });
 
       // Limpiar estado de registro
@@ -669,15 +692,14 @@ export class BotController {
 
       await ctx.reply(
         '🎉 **¡Registro completado exitosamente!**\n\n' +
-        `🏢 **Empresa:** ${tenant.companyName}\n` +
-        `👤 **Usuario:** ${tenant.ikeUsername}\n` +
-        `🔐 **Estado:** Configurado y listo\n\n` +
-        `📋 **Chat ID:** ${ctx.from.id}\n\n` +
-        '✨ ¡Ya puedes empezar a procesar expedientes!\n' +
-        'Envía un archivo Excel para comenzar.',
+          `🏢 **Empresa:** ${tenant.companyName}\n` +
+          `👤 **Usuario:** ${tenant.ikeUsername}\n` +
+          `🔐 **Estado:** Configurado y listo\n\n` +
+          `📋 **Chat ID:** ${ctx.from.id}\n\n` +
+          '✨ ¡Ya puedes empezar a procesar expedientes!\n' +
+          'Envía un archivo Excel para comenzar.',
         { parse_mode: 'Markdown' }
       );
-
     } catch (error) {
       console.error('Error en registro final:', error);
       await ctx.reply('❌ Error completando el registro. Usa `/registrar` para intentar de nuevo.');
@@ -692,7 +714,7 @@ export class BotController {
   async launch() {
     console.log('🚀 Iniciando Bot de Expedientes IKE v3.0 Multitenant...');
     await this.bot.launch();
-    
+
     process.once('SIGINT', () => this.cleanup());
     process.once('SIGTERM', () => this.cleanup());
   }
