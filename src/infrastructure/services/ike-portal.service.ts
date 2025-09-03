@@ -32,6 +32,39 @@ export class IkePortalService {
   }
 
   /**
+   * Espera a que la página se estabilice y no haya más navegación
+   */
+  private async waitForStableNavigation(): Promise<void> {
+    if (!this.page) return;
+    
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    while (attempts < maxAttempts) {
+      try {
+        // Esperar un momento y luego verificar si la página está estable
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Intentar obtener el título - si falla, la página aún se está cargando
+        await this.page.title();
+        
+        // Si llegamos aquí, la página está estable
+        console.log('📋 Página estable detectada');
+        return;
+        
+      } catch (error) {
+        attempts++;
+        console.log(`⏳ Esperando estabilización (intento ${attempts}/${maxAttempts})`);
+        
+        if (attempts >= maxAttempts) {
+          console.log('⚠️ Página puede no estar completamente estable, continuando...');
+          return;
+        }
+      }
+    }
+  }
+
+  /**
    * Detecta automáticamente la ruta del ejecutable de Chrome/Chromium
    * Prioriza Google Chrome sobre Chromium
    */
@@ -127,16 +160,18 @@ export class IkePortalService {
     console.log('🔐 Iniciando sesión en Portal IKE...');
 
     try {
-      // Navegar a la página de login (igual que la app original)
+      // Navegar a la página de login con manejo robusto de frames
       await this.page.goto('https://portalproveedores.ikeasistencia.com', {
-        waitUntil: 'networkidle2',
+        waitUntil: 'domcontentloaded',
         timeout: this.config.timeout
       });
 
-      console.log('📄 Página de login cargada');
+      console.log('📄 Página de login cargada, esperando estabilización...');
 
-      // Buscar campos de login con múltiples estrategias
-      await this.page.waitForTimeout(3000); // Esperar a que cargue completamente
+      // Esperar a que la página se estabilice y no haya más navegación
+      await this.waitForStableNavigation();
+
+      console.log('✅ Página estabilizada, buscando campos de login...');
       
       // Buscar cualquier input de texto primero
       const inputs = await this.page.$$('input');
@@ -224,6 +259,18 @@ export class IkePortalService {
 
     } catch (error) {
       console.error('❌ Error en login:', error);
+      
+      // Verificar si el navegador/página aún están disponibles
+      if (!this.browser || this.browser.process()?.killed) {
+        console.error('🔥 Navegador fue cerrado inesperadamente');
+        throw new Error('Navegador cerrado durante login');
+      }
+      
+      if (!this.page || this.page.isClosed()) {
+        console.error('🔥 Página fue cerrada inesperadamente');
+        throw new Error('Página cerrada durante login');
+      }
+      
       throw new Error(`Error en login: ${(error as Error).message}`);
     }
   }
