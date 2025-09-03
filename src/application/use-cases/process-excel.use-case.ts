@@ -22,6 +22,7 @@ export interface ProcessExcelDTO {
     margen10Porciento: boolean;
     costoSuperior: boolean;
   };
+  tenantId?: string; // ID del tenant para obtener credenciales específicas
 }
 
 export interface ProcessResultDTO {
@@ -44,6 +45,29 @@ export class ProcessExcelUseCase {
   ) {}
 
   async execute(dto: ProcessExcelDTO): Promise<ProcessResultDTO> {
+    // Si se proporciona tenantId, configurar credenciales específicas del tenant
+    if (dto.tenantId) {
+      const { TenantService } = await import('../../infrastructure/services/tenant.service');
+      const tenantService = new TenantService();
+      
+      try {
+        const credentials = await tenantService.getCredentialsByTenantId(dto.tenantId);
+        
+        if (credentials) {
+          console.log(`🔐 Configurando credenciales específicas para tenant: ${dto.tenantId}`);
+          // Configurar el sistema repository con las credenciales del tenant
+          if ('setCredentials' in this.sistemaRepo) {
+            (this.sistemaRepo as any).setCredentials(credentials);
+          }
+        } else {
+          console.warn(`⚠️ No se encontraron credenciales para tenant: ${dto.tenantId}`);
+        }
+      } catch (error) {
+        console.error('❌ Error obteniendo credenciales del tenant:', error);
+      } finally {
+        await tenantService.disconnect();
+      }
+    }
     // 1. Leer Excel
     const expedientes = await this.excelRepo.readFile(dto.filePath);
     

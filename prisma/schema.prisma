@@ -1,0 +1,60 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id          String   @id @default(uuid())
+  telegramId  BigInt   @unique
+  companyName String
+  ikeUsername String
+  ikePassword String   // Encriptado con crypto-js
+  headless    Boolean  @default(true)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sessions Session[]
+  history  ProcessingHistory[]
+
+  @@map("tenants")
+}
+
+model Session {
+  id            String   @id @default(uuid())
+  tenantId      String
+  filePath      String?
+  fileName      String?
+  expedientesCount Int?
+  logicasActivas Json    @default("{\"costoExacto\": true, \"margen10Porciento\": false, \"costoSuperior\": false}")
+  stage         String   @default("idle")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model ProcessingHistory {
+  id          String   @id @default(uuid())
+  tenantId    String
+  total       Int
+  aceptados   Int
+  pendientes  Int
+  tasaLiberacion Float
+  logicasUsadas  Json
+  fileName    String?
+  processedAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("processing_history")
+}
