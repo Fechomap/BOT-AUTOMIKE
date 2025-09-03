@@ -170,11 +170,15 @@ export class IkePortalService {
       timeout: 60000,
     };
 
-    // Auto-detectar ejecutable de Chrome/Chromium por plataforma
-    const executablePath = this.getChromiumExecutablePath();
-    if (executablePath) {
-      launchOptions.executablePath = executablePath;
-      console.log(`🌐 Usando navegador: ${executablePath}`);
+    // Solo auto-detectar ejecutable en desarrollo (no en producción/Docker)
+    if (process.env.NODE_ENV !== 'production') {
+      const executablePath = this.getChromiumExecutablePath();
+      if (executablePath) {
+        launchOptions.executablePath = executablePath;
+        console.log(`🌐 Usando navegador: ${executablePath}`);
+      }
+    } else {
+      console.log('🐳 Usando Chrome bundled de imagen Puppeteer');
     }
 
     // En desarrollo local, usar ventana maximizada

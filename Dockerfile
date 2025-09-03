@@ -48,7 +48,6 @@ COPY --from=builder /app/prisma ./prisma
 # Variables de entorno
 ENV NODE_ENV=production
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=false
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
 
 # Crear directorio temp y configurar permisos
 RUN mkdir -p /app/temp && chmod 777 /app/temp
