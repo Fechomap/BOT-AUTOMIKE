@@ -16,7 +16,7 @@ export class ValidationResult {
     public readonly costoSistema: number,
     public readonly logicaUsada: LogicaValidacion | 0,
     public readonly resultado: ResultadoValidacion,
-    public readonly mensaje: string,
+    public mensaje: string, // No readonly para permitir modificaciones
     public readonly debeLiberarse: boolean
   ) {}
 }

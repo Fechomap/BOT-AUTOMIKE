@@ -168,6 +168,69 @@ export class IkePortalService {
   }
 
   /**
+   * Acepta el costo de un expediente encontrado
+   */
+  async acceptCost(): Promise<boolean> {
+    if (!this.page || !this.isLoggedIn) {
+      throw new Error('Servicio no inicializado o no autenticado');
+    }
+
+    console.log('💰 Intentando aceptar costo del expediente...');
+
+    try {
+      // Buscar y hacer clic en el botón de aceptar (basado en la app principal)
+      const buttonClicked = await this.page.evaluate(() => {
+        const buttons = Array.from(document.querySelectorAll('button'));
+        const acceptButton = buttons.find(button => {
+          const td = button.closest('td');
+          return button.querySelector('.mat-mdc-button-touch-target') &&
+                 td &&
+                 td.cellIndex === 0;
+        });
+        if (acceptButton) {
+          (acceptButton as HTMLButtonElement).click();
+          return true;
+        }
+        return false;
+      });
+
+      if (!buttonClicked) {
+        console.log('❌ No se encontró el botón de aceptar');
+        return false;
+      }
+
+      console.log('✅ Botón aceptar clickeado, esperando modal...');
+      await this.page.waitForTimeout(2000);
+
+      // Confirmar en el modal (basado en la app principal)
+      const confirmed = await this.page.evaluate(() => {
+        const modalButtons = Array.from(document.querySelectorAll('.cdk-overlay-container button'));
+        const confirmButton = modalButtons.find(button =>
+          button.textContent?.trim().toLowerCase().includes('aceptar')
+        );
+        if (confirmButton) {
+          (confirmButton as HTMLButtonElement).click();
+          return true;
+        }
+        return false;
+      });
+
+      if (confirmed) {
+        console.log('✅ Expediente aceptado exitosamente');
+        await this.page.waitForTimeout(3000);
+        return true;
+      } else {
+        console.log('❌ No se pudo confirmar la aceptación en el modal');
+        return false;
+      }
+      
+    } catch (error) {
+      console.error('❌ Error durante la aceptación:', error);
+      return false;
+    }
+  }
+
+  /**
    * Busca un expediente en el sistema
    */
   async searchExpediente(numeroExpediente: string): Promise<ExpedienteSearchResult> {

@@ -12,10 +12,16 @@ export interface SistemaRepository {
     encontrado: boolean;
     costoSistema: number;
   }>;
+  acceptCost(): Promise<boolean>;
 }
 
 export interface ProcessExcelDTO {
   filePath: string;
+  logicasActivas?: {
+    costoExacto: boolean;      // Siempre activa
+    margen10Porciento: boolean;
+    costoSuperior: boolean;
+  };
 }
 
 export interface ProcessResultDTO {
@@ -45,10 +51,19 @@ export class ProcessExcelUseCase {
       throw new Error('No se encontraron expedientes válidos');
     }
 
-    // 2. Procesar cada expediente
+    // 2. Configurar lógicas (por defecto todas activas para mantener compatibilidad)
+    const logicasActivas = dto.logicasActivas || {
+      costoExacto: true,
+      margen10Porciento: true,
+      costoSuperior: true
+    };
+
+    // 3. Procesar cada expediente
     const results: ValidationResult[] = [];
     
     for (const expediente of expedientes) {
+      console.log(`🔍 Procesando expediente: ${expediente.numero}`);
+      
       // Buscar en sistema
       const sistemaResult = await this.sistemaRepo.searchExpediente(
         expediente.numero, 
@@ -68,12 +83,32 @@ export class ProcessExcelUseCase {
         continue;
       }
 
-      // Validar
+      // Validar con lógicas configuradas
       const validation = ValidationDomainService.validate(
         expediente.numero,
         expediente.costoGuardado,
-        sistemaResult.costoSistema
+        sistemaResult.costoSistema,
+        logicasActivas
       );
+
+      // Si debe liberarse, intentar aceptar el costo en el portal
+      if (validation.debeLiberarse) {
+        console.log(`💰 Expediente ${expediente.numero} cumple lógica, intentando liberar...`);
+        
+        try {
+          const liberado = await this.sistemaRepo.acceptCost();
+          if (liberado) {
+            console.log(`✅ Expediente ${expediente.numero} liberado exitosamente`);
+            validation.mensaje += ' - LIBERADO EN PORTAL';
+          } else {
+            console.log(`⚠️ Expediente ${expediente.numero} no se pudo liberar en portal`);
+            validation.mensaje += ' - ERROR AL LIBERAR';
+          }
+        } catch (error) {
+          console.error(`❌ Error liberando expediente ${expediente.numero}:`, error);
+          validation.mensaje += ' - ERROR AL LIBERAR';
+        }
+      }
 
       results.push(validation);
     }

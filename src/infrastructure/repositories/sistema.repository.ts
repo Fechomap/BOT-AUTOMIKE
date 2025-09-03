@@ -46,6 +46,17 @@ export class SistemaRepositoryImpl implements SistemaRepository {
   }
 
   /**
+   * Acepta el costo del expediente actual en el portal
+   */
+  async acceptCost(): Promise<boolean> {
+    if (!this.portalService || !this.portalService.isReady()) {
+      throw new Error('Portal IKE no configurado');
+    }
+
+    return await this.portalService.acceptCost();
+  }
+
+  /**
    * Búsqueda con automatización real del Portal IKE
    */
   private async searchWithRealAutomation(expediente: string): Promise<{

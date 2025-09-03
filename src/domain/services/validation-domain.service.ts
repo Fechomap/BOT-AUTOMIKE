@@ -1,17 +1,31 @@
 import { ValidationResult, LogicaValidacion, ResultadoValidacion } from '../value-objects/validation-result.vo';
 
+export interface LogicasConfig {
+  costoExacto: boolean;
+  margen10Porciento: boolean;
+  costoSuperior: boolean;
+}
+
 export class ValidationDomainService {
   /**
-   * Valida un expediente aplicando las 3 lógicas de negocio
+   * Valida un expediente aplicando las lógicas de negocio configuradas
    */
   static validate(
     expediente: string,
     costoGuardado: number,
-    costoSistema: number
+    costoSistema: number,
+    logicasActivas?: LogicasConfig
   ): ValidationResult {
     
-    // Lógica 1: Costo Exacto (siempre activa)
-    if (this.isCostoExacto(costoGuardado, costoSistema)) {
+    // Por defecto todas las lógicas están activas para mantener compatibilidad
+    const config = logicasActivas || {
+      costoExacto: true,
+      margen10Porciento: true,
+      costoSuperior: true
+    };
+    
+    // Lógica 1: Costo Exacto (siempre activa cuando está habilitada)
+    if (config.costoExacto && this.isCostoExacto(costoGuardado, costoSistema)) {
       return new ValidationResult(
         expediente,
         costoGuardado,
@@ -24,7 +38,7 @@ export class ValidationDomainService {
     }
     
     // Lógica 2: Margen ±10%
-    if (this.isWithinMargin(costoGuardado, costoSistema)) {
+    if (config.margen10Porciento && this.isWithinMargin(costoGuardado, costoSistema)) {
       const margenInf = costoGuardado * 0.9;
       const margenSup = costoGuardado * 1.1;
       return new ValidationResult(
@@ -39,7 +53,7 @@ export class ValidationDomainService {
     }
     
     // Lógica 3: Costo Superior
-    if (this.isCostoSuperior(costoGuardado, costoSistema)) {
+    if (config.costoSuperior && this.isCostoSuperior(costoGuardado, costoSistema)) {
       return new ValidationResult(
         expediente,
         costoGuardado,
