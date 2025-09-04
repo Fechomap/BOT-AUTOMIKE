@@ -25,7 +25,7 @@ COPY . .
 RUN npm run build
 
 # Imagen de producción optimizada para Puppeteer
-FROM ghcr.io/puppeteer/puppeteer:21.11.0 AS runtime
+FROM ghcr.io/puppeteer/puppeteer:24.18.0 AS runtime
 
 # Cambiar a usuario root temporalmente para instalar dependencias
 USER root
