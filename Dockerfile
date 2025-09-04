@@ -1,5 +1,5 @@
 # Multi-stage build para optimizar el tamaño
-FROM node:18-slim AS builder
+FROM node:24-slim AS builder
 
 # Instalar dependencias del sistema para Prisma y build
 RUN apt-get update && apt-get install -y \
