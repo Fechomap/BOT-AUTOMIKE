@@ -546,7 +546,6 @@ export class BotController {
         `📊 **Resultados de Carga:**\n` +
         `• ✅ Aprobados: **${result.aprobados}**\n` +
         `• ⏳ Pendientes: **${result.pendientes}**\n` +
-        `• ❌ No Aprobados: **${result.noAprobados}**\n` +
         `• 🔍 No Encontrados: **${result.noEncontrados}**\n` +
         `• 🆕 Nuevos: **${result.nuevosExpedientes}**\n` +
         `• 🔄 Actualizados: **${result.actualizados}**\n\n` +
