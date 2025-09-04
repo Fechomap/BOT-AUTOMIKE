@@ -205,13 +205,33 @@ export class CargaExpedientesUseCase {
     if (this.excelRepository) {
       try {
         console.log('📊 Generando Excel de resultados...');
-        const excelData = expedientesConDatosSistema.map((item) => ({
-          Expediente: item.expediente.numero,
-          'Costo Excel': item.expediente.costo,
-          'Costo Sistema': item.costoSistema,
-          Estado: item.expediente.calificacion,
-          Motivo: item.expediente.motivoCalificacion,
-        }));
+        const excelData = expedientesConDatosSistema.map((item) => {
+          const costoGuardadoVO = CostoExpediente.create(item.expediente.costo);
+          const costoSistemaVO = CostoExpediente.create(item.costoSistema);
+          const porcentajeDiferencia = costoGuardadoVO.calcularVariancia(costoSistemaVO);
+
+          // Extraer número de lógica del motivo
+          let logicaAplicada = 'N/A';
+          if (item.expediente.calificacion === CalificacionExpediente.APROBADO) {
+            if (item.expediente.motivoCalificacion?.includes('Lógica 1')) {
+              logicaAplicada = '1';
+            } else if (item.expediente.motivoCalificacion?.includes('Lógica 2')) {
+              logicaAplicada = '2';
+            } else if (item.expediente.motivoCalificacion?.includes('Lógica 3')) {
+              logicaAplicada = '3';
+            }
+          }
+
+          return {
+            Expediente: item.expediente.numero,
+            'Costo Excel': item.expediente.costo,
+            'Costo Sistema': item.costoSistema,
+            Estado: item.expediente.calificacion,
+            Motivo: item.expediente.motivoCalificacion,
+            'Porcentaje Diferencia': Math.round(porcentajeDiferencia * 100) / 100,
+            'Lógica Aplicada': logicaAplicada,
+          };
+        });
 
         const fileName = `resultados_${dto.tenantId.substring(0, 8)}_${Date.now()}.xlsx`;
         excelPath = await this.excelRepository.writeResults(excelData, fileName);

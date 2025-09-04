@@ -22,15 +22,16 @@ export interface DatosSistema {
 
 export class ExpedienteValidationService {
   static validar(
-    numeroExpediente: string,
+    _numeroExpediente: string,
     costoGuardado: number,
     datosSistema: DatosSistema,
     logicasActivas: LogicasValidacion
   ): ResultadoValidacion {
-    if (!datosSistema.encontrado) {
+    // Si no fue encontrado O tiene costo 0 (no disponible)
+    if (!datosSistema.encontrado || datosSistema.costoSistema === 0) {
       return {
         calificacion: CalificacionExpediente.NO_ENCONTRADO,
-        motivo: 'Expediente no encontrado en el sistema',
+        motivo: 'Expediente no disponible en el sistema',
         debeLiberarse: false,
       };
     }
@@ -42,7 +43,7 @@ export class ExpedienteValidationService {
     if (logicasActivas.costoExacto && costoGuardadoVO.equals(costoSistemaVO)) {
       return {
         calificacion: CalificacionExpediente.APROBADO,
-        motivo: 'Costo exacto coincide con el sistema',
+        motivo: 'Aprobado - Lógica 1: Costo exacto',
         logicaUsada: 1,
         debeLiberarse: true,
       };
@@ -54,7 +55,7 @@ export class ExpedienteValidationService {
       if (variancia <= 10) {
         return {
           calificacion: CalificacionExpediente.APROBADO,
-          motivo: `Costo dentro del margen del 10% (diferencia: ${variancia.toFixed(1)}%)`,
+          motivo: `Aprobado - Lógica 2: Margen 10%`,
           logicaUsada: 2,
           debeLiberarse: true,
         };
@@ -65,17 +66,16 @@ export class ExpedienteValidationService {
     if (logicasActivas.costoSuperior && costoGuardadoVO.esMayorQue(costoSistemaVO)) {
       return {
         calificacion: CalificacionExpediente.APROBADO,
-        motivo: 'Costo guardado es superior al del sistema',
+        motivo: 'Aprobado - Lógica 3: Costo superior',
         logicaUsada: 3,
         debeLiberarse: true,
       };
     }
 
     // No cumple ninguna lógica - PENDIENTE para revisión manual
-    const diferencia = costoGuardadoVO.calcularVariancia(costoSistemaVO);
     return {
       calificacion: CalificacionExpediente.PENDIENTE,
-      motivo: `Expediente encontrado pero costo requiere validación manual (diferencia: ${diferencia.toFixed(1)}%)`,
+      motivo: 'Encontrado pero requiere validación manual',
       debeLiberarse: false,
     };
   }
@@ -156,8 +156,8 @@ export class ExpedienteValidationService {
   static obtenerLogicasActivasPorDefecto(): LogicasValidacion {
     return {
       costoExacto: true,
-      margen10Porciento: false,
-      costoSuperior: false,
+      margen10Porciento: true, // Activar lógica 2
+      costoSuperior: true, // Activar lógica 3
     };
   }
 }

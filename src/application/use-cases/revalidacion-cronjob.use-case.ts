@@ -64,11 +64,8 @@ export class RevalidacionCronJobUseCase {
 
     const inicioEjecucion = CronJobExecution.iniciar();
 
-    const calificacionesParaReevaluar = [
-      CalificacionExpediente.PENDIENTE,
-      CalificacionExpediente.NO_APROBADO,
-      CalificacionExpediente.NO_ENCONTRADO,
-    ];
+    // Solo reevaluar expedientes NO_ENCONTRADO (para verificar si ahora están disponibles)
+    const calificacionesParaReevaluar = [CalificacionExpediente.NO_ENCONTRADO];
 
     let expedientesParaProcesar: ExpedienteAggregate[];
 
@@ -129,16 +126,9 @@ export class RevalidacionCronJobUseCase {
           }
         }
 
-        switch (expediente.calificacion) {
-          case CalificacionExpediente.PENDIENTE:
-            resultados.permanecenNoAprobado++; // Los PENDIENTE se contabilizan como no aprobados para el reporte
-            break;
-          case CalificacionExpediente.NO_APROBADO:
-            resultados.permanecenNoAprobado++;
-            break;
-          case CalificacionExpediente.NO_ENCONTRADO:
-            resultados.permanecenNoEncontrado++;
-            break;
+        // Solo procesamos NO_ENCONTRADO, así que solo contamos los que permanecen así
+        if (expediente.calificacion === CalificacionExpediente.NO_ENCONTRADO) {
+          resultados.permanecenNoEncontrado++;
         }
       } catch (error) {
         console.error(`❌ Error reevaluando expediente ${expediente.numero}:`, error);
