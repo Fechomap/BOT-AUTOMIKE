@@ -131,7 +131,7 @@ model CargaExpedientes {
   duplicadosSinCambio Int
   errores             Int
   aprobados           Int
-  pendientes          Int             @default(0)
+  pendientes          Int      @default(0)
   noAprobados         Int
   noEncontrados       Int
   esBaseline          Boolean  @default(false)
